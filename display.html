@@ -375,7 +375,6 @@ const ws = new WebSocket('ws://YOUR_IP:8080');
 let players = [];
 let phase = "Night";
 let phaseNumber = 1;
-let currentPhase = "Night";
 
 ws.onopen = () => {
   console.log("WebSocket connected!");
