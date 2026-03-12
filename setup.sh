@@ -110,28 +110,6 @@ for FILE in display.html controller.html; do
     fi
 done
 
-# 5.5. Inject Spotify token if file exists
-SPOTIFY_TOKEN_FILE=".spotify_token"
-if [ -f "$SPOTIFY_TOKEN_FILE" ]; then
-    echo "Spotify token file found, injecting into display.html..."
-    # Read token from file (trim whitespace)
-    SPOTIFY_TOKEN=$(cat "$SPOTIFY_TOKEN_FILE" | tr -d '\n\r' | xargs)
-    
-    if [ ! -z "$SPOTIFY_TOKEN" ]; then
-        # Backup display.html
-        cp display.html display.html.spotify.bak
-        
-        # Replace the localStorage token retrieval with the file token
-        sed -i '' "s|spotifyToken = localStorage.getItem('spotify_token');|spotifyToken = '$SPOTIFY_TOKEN'; // Set from .spotify_token file|g" display.html
-        echo "Spotify token injected successfully from file"
-    else
-        echo "Warning: .spotify_token file is empty"
-    fi
-else
-    echo "No .spotify_token file found"
-    echo "To use Spotify, create a .spotify_token file with your token"
-    echo "Example: echo 'your_spotify_token' > .spotify_token"
-fi
 
 # 6. Clean up any existing processes on our ports
 echo "Cleaning up existing processes..."
