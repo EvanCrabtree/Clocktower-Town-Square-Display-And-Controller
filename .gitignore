@@ -55,3 +55,5 @@ build/
 # Backup files
 *.bak
 *.backup
+# Auto-generated IP-specific files
+*_*.html

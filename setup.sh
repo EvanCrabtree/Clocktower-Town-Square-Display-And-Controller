@@ -84,27 +84,40 @@ echo "   Do NOT commit these files to version control with real IP addresses!"
 echo "   Use YOUR_IP placeholder for public repositories"
 echo ""
 
-# 5. Inject IP into index.html and controller.html
+# 5. Create IP-specific copies and update .gitignore
+echo "Creating IP-specific working copies..."
+
+# Update .gitignore to exclude IP-specific files
+if [ -f .gitignore ]; then
+    if ! grep -q "*_*.html" .gitignore; then
+        echo "# Auto-generated IP-specific files" >> .gitignore
+        echo "*_*.html" >> .gitignore
+        echo "Added IP-specific files to .gitignore"
+    fi
+else
+    echo "# Auto-generated IP-specific files" > .gitignore
+    echo "*_*.html" >> .gitignore
+    echo "Created .gitignore with IP-specific files"
+fi
+
 for FILE in display.html controller.html; do
     if [ -f "$FILE" ]; then
-        echo "Updating WebSocket URL in $FILE..."
-        
         # Check if file contains YOUR_IP placeholder
         if grep -q "YOUR_IP" "$FILE"; then
-            echo "✅ $FILE already uses YOUR_IP placeholder - safe to proceed"
+            echo "✅ $FILE uses YOUR_IP placeholder - creating IP-specific copy"
+            
+            # Create IP-specific copy
+            IP_FILE="${FILE%.html}_${IP//./_}.html"
+            cp "$FILE" "$IP_FILE"
+            
+            # Replace YOUR_IP with actual IP in the copy
+            sed -i '' "s|const ws = new WebSocket('ws://YOUR_IP:8080');|const ws = new WebSocket('ws://$IP:8080');|" "$IP_FILE"
+            echo "✅ Created $IP_FILE with IP: $IP"
         else
             echo "❌ ERROR: $FILE contains hardcoded IP address!"
             echo "   Please replace with YOUR_IP placeholder before running setup"
-            echo "   Current setup script will NOT modify files with hardcoded IPs"
             echo "   Skipping $FILE..."
-            continue
         fi
-        
-        # Backup original file
-        cp "$FILE" "$FILE.bak"
-        # Replace line with ws URL
-        sed -i '' "s|const ws = new WebSocket('ws://YOUR_IP:8080');|const ws = new WebSocket('ws://$IP:8080');|" "$FILE"
-        echo "✅ Updated $FILE with IP: $IP"
     else
         echo "Warning: $FILE not found, skipping..."
     fi
@@ -130,8 +143,8 @@ echo "HTTP server running with PID $HTTP_PID"
 
 echo ""
 echo "Setup complete!"
-echo "TV Display URL: http://$IP:8000/display.html"
-echo "Controller URL: http://$IP:8000/controller.html"
+echo "TV Display URL: http://$IP:8000/display_${IP//./_}.html"
+echo "Controller URL: http://$IP:8000/controller_${IP//./_}.html"
 echo "Keep this terminal open while playing."
 echo "Press Ctrl+C to gracefully stop both servers."
 
