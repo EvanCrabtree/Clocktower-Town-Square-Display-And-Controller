@@ -89,14 +89,16 @@ echo "Creating IP-specific working copies..."
 
 # Update .gitignore to exclude IP-specific files
 if [ -f .gitignore ]; then
-    if ! grep -q "*_*.html" .gitignore; then
+    if ! grep -q "display_.*.html" .gitignore; then
         echo "# Auto-generated IP-specific files" >> .gitignore
-        echo "*_*.html" >> .gitignore
+        echo "display_*.html" >> .gitignore
+        echo "controller_*.html" >> .gitignore
         echo "Added IP-specific files to .gitignore"
     fi
 else
     echo "# Auto-generated IP-specific files" > .gitignore
-    echo "*_*.html" >> .gitignore
+    echo "display_*.html" >> .gitignore
+    echo "controller_*.html" >> .gitignore
     echo "Created .gitignore with IP-specific files"
 fi
 
@@ -135,9 +137,9 @@ node server.js &
 SERVER_PID=$!
 echo "Server running with PID $SERVER_PID"
 
-# 8. Start HTTP server for hosting HTML files
-echo "Starting local HTTP server at http://$IP:8000"
-npx http-server . -p 8000 &
+# 8. Start HTTP server for hosting HTML files (only IP-specific files)
+echo "Starting HTTP server for IP-specific files at http://$IP:8000"
+node http-server.js $IP &
 HTTP_PID=$!
 echo "HTTP server running with PID $HTTP_PID"
 

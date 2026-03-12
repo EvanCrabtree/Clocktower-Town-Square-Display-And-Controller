@@ -56,4 +56,5 @@ build/
 *.bak
 *.backup
 # Auto-generated IP-specific files
-*_*.html
+display_*.html
+controller_*.html
