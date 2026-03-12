@@ -255,6 +255,68 @@
     z-index: 10;
   }
 
+  #distributionInfo {
+    position: absolute;
+    bottom: clamp(10px, 2vw, 20px);
+    right: clamp(10px, 2vw, 20px);
+    font-family: 'Crimson Text', serif;
+    font-size: clamp(0.7em, 1.2vw, 0.8em);
+    background: rgba(20, 20, 30, 0.9);
+    padding: clamp(6px, 1vw, 8px) clamp(10px, 1.5vw, 12px);
+    border-radius: 10px;
+    border: 1px solid rgba(139, 69, 19, 0.4);
+    box-shadow: 
+      0 4px 16px rgba(0, 0, 0, 0.3),
+      inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    z-index: 10;
+  }
+
+  .distribution-title {
+    font-family: 'Cinzel', serif;
+    font-size: 1.1em;
+    color: #d4af37;
+    margin-bottom: 8px;
+    text-align: center;
+  }
+
+  .distribution-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin: 4px 0;
+    color: #f0e6d2;
+  }
+
+  .distribution-role {
+    font-weight: 500;
+  }
+
+  .distribution-count {
+    font-weight: 600;
+    min-width: 20px;
+    text-align: right;
+  }
+
+  .distribution-role.townsfolk {
+    color: #0055ff;
+  }
+
+  .distribution-role.outsiders {
+    color: #0055ff;
+  }
+
+  .distribution-role.minions {
+    color: #cc0000;
+  }
+
+  .distribution-role.demon {
+    color: #cc0000;
+  }
+
+  .distribution-role.travelers {
+    color: #9370db;
+  }
+
   .icon-key-title {
     font-family: 'Cinzel', serif;
     font-weight: 600;
@@ -363,6 +425,29 @@
     <span>Ghost Vote</span>
   </div>
 </div>
+<div id="distributionInfo">
+  <div class="distribution-title">Distribution</div>
+  <div class="distribution-item">
+    <span class="distribution-role townsfolk">Townsfolk:</span>
+    <span class="distribution-count" id="townsfolkCount">0</span>
+  </div>
+  <div class="distribution-item">
+    <span class="distribution-role outsiders">Outsiders:</span>
+    <span class="distribution-count" id="outsidersCount">0</span>
+  </div>
+  <div class="distribution-item">
+    <span class="distribution-role minions">Minions:</span>
+    <span class="distribution-count" id="minionsCount">0</span>
+  </div>
+  <div class="distribution-item">
+    <span class="distribution-role demon">Demon:</span>
+    <span class="distribution-count" id="demonCount">0</span>
+  </div>
+  <div class="distribution-item">
+    <span class="distribution-role travelers">Travelers:</span>
+    <span class="distribution-count" id="travelersCount">0</span>
+  </div>
+</div>
 <div id="playersContainer"></div>
 
 <script>
@@ -409,6 +494,9 @@ function render() {
   document.getElementById('totalPlayers').textContent = totalPlayers;
   document.getElementById('alivePlayers').textContent = alivePlayers;
   document.getElementById('deadPlayers').textContent = deadPlayers;
+  
+  // Update distribution information
+  updateDistributionInfo();
 
   // Calculate oval layout for up to 20 players
   const containerWidth = playersContainer.clientWidth;
@@ -489,6 +577,47 @@ function render() {
     div.appendChild(statusDiv);
     playersContainer.appendChild(div);
   });
+}
+
+function updateDistributionInfo() {
+  // Count non-traveler players
+  const nonTravelers = players.filter(p => !p.traveler);
+  const playerCount = nonTravelers.length;
+  const travelers = players.filter(p => p.traveler).length;
+  
+  // Official Blood on the Clocktower distribution table
+  let townsfolk = 0, outsiders = 0, minions = 0, demons = 0;
+  
+  if (playerCount >= 5 && playerCount <= 5) {
+    townsfolk = 3; outsiders = 0; minions = 1; demons = 1;
+  } else if (playerCount === 6) {
+    townsfolk = 3; outsiders = 1; minions = 1; demons = 1;
+  } else if (playerCount === 7) {
+    townsfolk = 5; outsiders = 0; minions = 1; demons = 1;
+  } else if (playerCount === 8) {
+    townsfolk = 5; outsiders = 1; minions = 1; demons = 1;
+  } else if (playerCount === 9) {
+    townsfolk = 5; outsiders = 2; minions = 1; demons = 1;
+  } else if (playerCount === 10) {
+    townsfolk = 7; outsiders = 0; minions = 2; demons = 1;
+  } else if (playerCount === 11) {
+    townsfolk = 7; outsiders = 1; minions = 2; demons = 1;
+  } else if (playerCount === 12) {
+    townsfolk = 7; outsiders = 2; minions = 2; demons = 1;
+  } else if (playerCount === 13) {
+    townsfolk = 9; outsiders = 0; minions = 3; demons = 1;
+  } else if (playerCount === 14) {
+    townsfolk = 9; outsiders = 1; minions = 3; demons = 1;
+  } else if (playerCount >= 15) {
+    townsfolk = 9; outsiders = 2; minions = 3; demons = 1;
+  }
+  
+  // Update display elements
+  document.getElementById('townsfolkCount').textContent = townsfolk;
+  document.getElementById('outsidersCount').textContent = outsiders;
+  document.getElementById('minionsCount').textContent = minions;
+  document.getElementById('demonCount').textContent = demons;
+  document.getElementById('travelersCount').textContent = travelers;
 }
 
 </script>
