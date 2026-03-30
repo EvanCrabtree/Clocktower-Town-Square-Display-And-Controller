@@ -178,3 +178,289 @@ test('20 players - mixed states', async ({ page }) => {
   
   await page.screenshot({ path: 'test-results/player-count-20-mixed.png' });
 });
+
+/**
+ * Test on-block feature: player marked for execution during day
+ */
+test('on-block player display and votes calculation', async ({ page }) => {
+  const data = {
+    players: Array.from({ length: 8 }, (_, i) => ({
+      name: `Player ${i + 1}`,
+      alive: i < 6, // 6 alive, 2 dead
+      traveler: false,
+      ghostVote: false,
+    })),
+    phase: 'Day',
+    phaseNumber: 2,
+    onBlockPlayer: 2, // Player 3 is on the block
+    onBlockVotes: 5, // 5 votes on the block
+  };
+  
+  await page.routeWebSocket(/ws:\/\/.*/, (ws) => {
+    ws.onMessage(() => {});
+    ws.send(JSON.stringify(data));
+  });
+  
+  await page.goto('display.html');
+  await page.waitForTimeout(200);
+  
+  // Verify day theme is applied
+  const body = page.locator('body');
+  await expect(body).toHaveClass(/day-theme/);
+  
+  // Verify on-block display (center widget) is hidden
+  const onBlockDisplay = page.locator('#onBlockDisplay');
+  await expect(onBlockDisplay).toBeHidden();
+  
+  // Verify on-block player card has special styling and vote count
+  const playerCards = page.locator('.player-card');
+  const thirdPlayerCard = playerCards.nth(2); // Player 3 (index 2)
+  await expect(thirdPlayerCard).toHaveClass(/on-block/);
+  
+  // Verify no candle shown for on-block player
+  const thirdCardContent = await thirdPlayerCard.textContent();
+  expect(thirdCardContent).not.toContain('🕯️');
+  
+  // Verify on-block label shows votes count
+  expect(thirdCardContent).toContain('5 Votes');
+  
+  // Votes to execute = max(half alive (6/2=3), on-block votes + 1 (5+1=6)) = 6
+//there IS an on-block player (Player 3, index 2), so:
+  // Votes to execute = max(3, 5+1=6) = 6
+  // Display should show "Votes needed to execute: 6" since no nominated player
+  const votesToExecuteText = page.locator('#votesToExecuteText');
+  await expect(votesToExecuteText).toHaveText('Votes needed to execute: 6');
+  
+  await page.screenshot({ path: 'test-results/on-block-feature.png' });
+});
+
+/**
+ * Test votes-to-execute uses half alive when no player on block
+ */
+test('votes-to-execute defaults to half alive when no on-block player', async ({ page }) => {
+  const data = {
+    players: Array.from({ length: 8 }, (_, i) => ({
+      name: `Player ${i + 1}`,
+      alive: i < 5, // 5 alive, 3 dead
+      traveler: false,
+      ghostVote: false,
+    })),
+    phase: 'Day',
+    phaseNumber: 1,
+    onBlockPlayer: null, // No one on the block
+    onBlockVotes: 0,
+  };
+  
+  await page.routeWebSocket(/ws:\/\/.*/, (ws) => {
+    ws.onMessage(() => {});
+    ws.send(JSON.stringify(data));
+  });
+  
+  await page.goto('display.html');
+  await page.waitForTimeout(200);
+  
+  // Verify on-block display is hidden
+  const onBlockDisplay = page.locator('#onBlockDisplay');
+  await expect(onBlockDisplay).toBeHidden();
+  
+  // 5 alive players, half rounded up = 3
+  // Display should show "Votes needed to execute: 3" below phase widget
+  const votesToExecuteText = page.locator('#votesToExecuteText');
+  await expect(votesToExecuteText).toHaveText('Votes needed to execute: 3');
+  
+  await page.screenshot({ path: 'test-results/votes-no-on-block.png' });
+});
+
+/**
+ * Test on-block with 15 players
+ */
+test('15 players with on-block player', async ({ page }) => {
+  const data = {
+    players: Array.from({ length: 15 }, (_, i) => ({
+      name: `Player ${i + 1}`,
+      alive: i < 10, // 10 alive, 5 dead
+      traveler: i >= 12, // 3 travelers
+      ghostVote: i >= 10 && i < 12, // 2 ghost votes
+    })),
+    phase: 'Day',
+    phaseNumber: 3,
+    onBlockPlayer: 4, // Player 5 is on the block
+    onBlockVotes: 7, // 7 votes
+  };
+  
+  await page.routeWebSocket(/ws:\/\/.*/, (ws) => {
+    ws.onMessage(() => {});
+    ws.send(JSON.stringify(data));
+  });
+  
+  await page.goto('display.html');
+  await page.waitForTimeout(200);
+  
+  // Verify day theme
+  const body = page.locator('body');
+  await expect(body).toHaveClass(/day-theme/);
+  
+  // Verify all 15 player cards rendered
+  const playerCards = page.locator('.player-card');
+  await expect(playerCards).toHaveCount(15);
+  
+  // Verify on-block player (Player 5, index 4) has special styling
+  const fifthPlayerCard = playerCards.nth(4);
+  await expect(fifthPlayerCard).toHaveClass(/on-block/);
+  
+  // Verify no candle shown for on-block player
+  const fifthCardContent = await fifthPlayerCard.textContent();
+  expect(fifthCardContent).not.toContain('🕯️');
+  
+  // Verify on-block label shows votes
+  expect(fifthCardContent).toContain('7 Votes');
+  
+  // Votes to execute = max(half alive (10/2=5), on-block votes + 1 (7+1=8)) = 8
+  // Display should show "Votes needed to execute Player 5: 8"
+  const votesToExecuteText = page.locator('#votesToExecuteText');
+  await expect(votesToExecuteText).toHaveText('Votes needed to execute: 8');
+  
+  await page.screenshot({ path: 'test-results/15-players-on-block.png' });
+});
+
+/**
+ * Test on-block with 20 players
+ */
+test('20 players with on-block player', async ({ page }) => {
+  const data = {
+    players: Array.from({ length: 20 }, (_, i) => ({
+      name: `Player ${i + 1}`,
+      alive: i < 14, // 14 alive, 6 dead
+      traveler: i >= 16, // 4 travelers
+      ghostVote: i >= 14 && i < 16, // 2 ghost votes
+    })),
+    phase: 'Day',
+    phaseNumber: 4,
+    onBlockPlayer: 12, // Player 13 is on the block
+    onBlockVotes: 8, // 8 votes
+  };
+  
+  await page.routeWebSocket(/ws:\/\/.*/, (ws) => {
+    ws.onMessage(() => {});
+    ws.send(JSON.stringify(data));
+  });
+  
+  await page.goto('display.html');
+  await page.waitForTimeout(200);
+  
+  // Verify day theme
+  const body = page.locator('body');
+  await expect(body).toHaveClass(/day-theme/);
+  
+  // Verify all 20 player cards rendered
+  const playerCards = page.locator('.player-card');
+  await expect(playerCards).toHaveCount(20);
+  
+  // Verify on-block player (Player 13, index 12) has special styling
+  const thirteenthPlayerCard = playerCards.nth(12);
+  await expect(thirteenthPlayerCard).toHaveClass(/on-block/);
+  
+  // Verify no candle shown for on-block player
+  const thirteenthCardContent = await thirteenthPlayerCard.textContent();
+  expect(thirteenthCardContent).not.toContain('🕯️');
+  
+  // Verify on-block label shows votes
+  expect(thirteenthCardContent).toContain('8 Votes');
+  
+  // Votes to execute = max(half alive (14/2=7), on-block votes + 1 (8+1=9)) = 9
+  // Display should show "Votes needed to execute: 9"
+  const votesToExecuteText = page.locator('#votesToExecuteText');
+  await expect(votesToExecuteText).toHaveText('Votes needed to execute: 9');
+  
+  await page.screenshot({ path: 'test-results/20-players-on-block.png' });
+});
+
+/**
+ * Test nominated feature with votes calculation
+ */
+test('nominated player with votes-to-execute calculation', async ({ page }) => {
+  const data = {
+    players: Array.from({ length: 10 }, (_, i) => ({
+      name: `Player ${i + 1}`,
+      alive: i < 8, // 8 alive, 2 dead
+      traveler: false,
+      ghostVote: false,
+    })),
+    phase: 'Day',
+    phaseNumber: 2,
+    onBlockPlayer: 3, // Player 4 is on the block
+    onBlockVotes: 4, // 4 votes on the block
+    nominatedPlayer: 5, // Player 6 is nominated
+  };
+  
+  await page.routeWebSocket(/ws:\/\/.*/, (ws) => {
+    ws.onMessage(() => {});
+    ws.send(JSON.stringify(data));
+  });
+  
+  await page.goto('display.html');
+  await page.waitForTimeout(200);
+  
+  // Verify day theme
+  const body = page.locator('body');
+  await expect(body).toHaveClass(/day-theme/);
+  
+  // Verify nominated player (Player 6, index 5) has special styling
+  const playerCards = page.locator('.player-card');
+  const sixthPlayerCard = playerCards.nth(5);
+  await expect(sixthPlayerCard).toHaveClass(/nominated/);
+  
+  // Verify nominated label is visible
+  const sixthCardContent = await sixthPlayerCard.textContent();
+  expect(sixthCardContent).toContain('Nominated');
+  
+  // Verify on-block player also has styling
+  const fourthPlayerCard = playerCards.nth(3);
+  await expect(fourthPlayerCard).toHaveClass(/on-block/);
+  
+  // Votes to execute = max(half alive (8/2=4), on-block votes + 1 (4+1=5)) = 5
+  // Display should show "Votes needed to execute Player 6: 5" (nominated player) below phase widget
+  const votesToExecuteText = page.locator('#votesToExecuteText');
+  await expect(votesToExecuteText).toHaveText('Votes needed to execute Player 6: 5');
+  
+  await page.screenshot({ path: 'test-results/nominated-feature.png' });
+});
+
+/**
+ * Test nominated without on-block
+ */
+test('nominated player without on-block player', async ({ page }) => {
+  const data = {
+    players: Array.from({ length: 8 }, (_, i) => ({
+      name: `Player ${i + 1}`,
+      alive: i < 6, // 6 alive, 2 dead
+      traveler: false,
+      ghostVote: false,
+    })),
+    phase: 'Day',
+    phaseNumber: 1,
+    onBlockPlayer: null, // No one on the block
+    onBlockVotes: 0,
+    nominatedPlayer: 2, // Player 3 is nominated
+  };
+  
+  await page.routeWebSocket(/ws:\/\/.*/, (ws) => {
+    ws.onMessage(() => {});
+    ws.send(JSON.stringify(data));
+  });
+  
+  await page.goto('display.html');
+  await page.waitForTimeout(200);
+  
+  // Verify nominated player (Player 3, index 2) has special styling
+  const playerCards = page.locator('.player-card');
+  const thirdPlayerCard = playerCards.nth(2);
+  await expect(thirdPlayerCard).toHaveClass(/nominated/);
+  
+  // Votes to execute = max(half alive (6/2=3), on-block votes + 1 (0+1=1)) = 3
+  // Display should show "Votes needed to execute: 3" below phase widget (nominated player)
+  const votesToExecuteText = page.locator('#votesToExecuteText');
+  await expect(votesToExecuteText).toHaveText('Votes needed to execute Player 3: 3');
+  
+  await page.screenshot({ path: 'test-results/nominated-only.png' });
+});

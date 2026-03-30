@@ -428,6 +428,45 @@
     color: #ff6b6b;
   }
 
+  .player-card.on-block {
+    border-color: #ffd700;
+    box-shadow: 0 0 20px rgba(255, 215, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  }
+
+  .player-card.on-block::before {
+    background: linear-gradient(90deg, #ffd700, #ff8c00);
+  }
+
+  .on-block-controls {
+    margin-top: 15px;
+    padding-top: 15px;
+    border-top: 1px solid rgba(139, 69, 19, 0.3);
+  }
+
+  .on-block-title {
+    font-family: 'Cinzel', serif;
+    color: #ffd700;
+    font-size: 0.9em;
+    margin-bottom: 8px;
+  }
+
+  .votes-input-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .votes-input-group label {
+    font-size: 0.9em;
+    color: #a08060;
+  }
+
+  .votes-input {
+    width: 60px;
+    padding: 6px 10px;
+    font-size: 1em;
+  }
+
   @media (max-width: 768px) {
     h1 {
       font-size: 2em;
@@ -521,6 +560,7 @@ const bulkImportBtn = document.getElementById("bulkImportBtn");
 const clearBulkBtn = document.getElementById("clearBulkBtn");
 
 let players = [];
+let state = { players: [], onBlockPlayer: null, onBlockVotes: 0, nominatedPlayer: null };
 
 // Replace with your server IP
 const ws = new WebSocket('ws://YOUR_IP:8080');
@@ -557,17 +597,27 @@ ws.onclose = () => {
 ws.onmessage = (msg) => {
   const data = JSON.parse(msg.data);
   if (data.players) players = data.players;
-  if (data.phase) phaseSelect.value = data.phase;
+  if (data.phase) state.phase = data.phase;
   if (data.phaseNumber) phaseNumber.value = data.phaseNumber;
+  
+  // Clear on-block and nominated when transitioning from Day to Night
+  if (state.phase === 'Day' && phaseSelect.value === 'Night') {
+    state.onBlockPlayer = null;
+    state.onBlockVotes = 0;
+    state.nominatedPlayer = null;
+  }
   
   renderPlayers();
 };
 
 function sendUpdate() {
   const data = {
-    players,
+    players: state.players,
     phase: phaseSelect.value,
-    phaseNumber: Number(phaseNumber.value)
+    phaseNumber: Number(phaseNumber.value),
+    onBlockPlayer: state.onBlockPlayer,
+    onBlockVotes: state.onBlockVotes,
+    nominatedPlayer: state.nominatedPlayer
   };
   if (ws.readyState === WebSocket.OPEN) {
     ws.send(JSON.stringify(data));
@@ -581,7 +631,7 @@ function renderPlayers() {
   playersContainer.innerHTML = "";
   players.forEach((p, index) => {
     const card = document.createElement("div");
-    card.className = `player-card ${!p.alive ? 'dead' : ''}`;
+    card.className = `player-card ${!p.alive ? 'dead' : ''} ${state.onBlockPlayer === index ? 'on-block' : ''} ${state.nominatedPlayer === index ? 'nominated' : ''}`;
     card.dataset.index = index;
 
     // Add order controls
@@ -651,18 +701,78 @@ function renderPlayers() {
     ghostBtn.onclick = (e) => { e.stopPropagation(); p.ghostVote = !p.ghostVote; sendUpdate(); };
     actionsDiv.appendChild(ghostBtn);
 
-    const deleteBtn = document.createElement("button");
-    deleteBtn.className = "btn danger";
-    deleteBtn.textContent = "Remove";
-    deleteBtn.onclick = (e) => { e.stopPropagation(); players.splice(index, 1); sendUpdate(); };
-    actionsDiv.appendChild(deleteBtn);
+    const onBlockBtn = document.createElement("button");
+    onBlockBtn.className = "btn";
+    onBlockBtn.textContent = (state.onBlockPlayer === index) ? "Remove from Block" : "Put on Block";
+    onBlockBtn.onclick = (e) => { e.stopPropagation(); toggleOnBlock(index); };
+    actionsDiv.appendChild(onBlockBtn);
+
+    const nominateBtn = document.createElement("button");
+    nominateBtn.className = "btn";
+    nominateBtn.textContent = (state.nominatedPlayer === index) ? "Un-nominate" : "Nominate";
+    nominateBtn.onclick = (e) => { e.stopPropagation(); toggleNominated(index); };
+    actionsDiv.appendChild(nominateBtn);
 
     card.appendChild(nameDiv);
     card.appendChild(statusDiv);
     card.appendChild(actionsDiv);
+
+    // Add on-block controls if this player is on the block
+    if (state.onBlockPlayer === index) {
+      const onBlockControls = document.createElement("div");
+      onBlockControls.className = "on-block-controls";
+      
+      const onBlockTitle = document.createElement("div");
+      onBlockTitle.className = "on-block-title";
+      onBlockTitle.textContent = "🗡️ On the Block";
+      onBlockControls.appendChild(onBlockTitle);
+      
+      const votesGroup = document.createElement("div");
+      votesGroup.className = "votes-input-group";
+      
+      const votesLabel = document.createElement("label");
+      votesLabel.textContent = "Votes:";
+      votesGroup.appendChild(votesLabel);
+      
+      const votesInput = document.createElement("input");
+      votesInput.type = "number";
+      votesInput.className = "votes-input";
+      votesInput.min = "0";
+      votesInput.value = state.onBlockVotes || 0;
+      votesInput.onchange = (e) => { updateOnBlockVotes(parseInt(e.target.value) || 0); };
+      votesGroup.appendChild(votesInput);
+      
+      onBlockControls.appendChild(votesGroup);
+      card.appendChild(onBlockControls);
+    }
     
     playersContainer.appendChild(card);
   });
+}
+
+function toggleOnBlock(index) {
+  if (state.onBlockPlayer === index) {
+    state.onBlockPlayer = null;
+    state.onBlockVotes = 0;
+  } else {
+    state.onBlockPlayer = index;
+    state.onBlockVotes = 0;
+  }
+  sendUpdate();
+}
+
+function updateOnBlockVotes(votes) {
+  state.onBlockVotes = votes;
+  sendUpdate();
+}
+
+function toggleNominated(index) {
+  if (state.nominatedPlayer === index) {
+    state.nominatedPlayer = null;
+  } else {
+    state.nominatedPlayer = index;
+  }
+  sendUpdate();
 }
 
 function killOrRevive(index) {

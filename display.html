@@ -118,12 +118,43 @@
     opacity: 0.7;
   }
 
-  body.day-theme .player-card.alive {
-    border-color: rgba(76, 175, 80, 0.6);
+  body.day-theme .player-card.on-block {
+    border-color: rgba(255, 215, 0, 0.8);
+    border-width: 3px;
     box-shadow: 
-      0 8px 32px rgba(0, 0, 0, 0.2),
-      0 0 15px rgba(76, 175, 80, 0.3),
+      0 0 20px rgba(255, 215, 0, 0.4),
+      0 8px 32px rgba(0, 0, 0, 0.3),
       inset 0 1px 0 rgba(255, 255, 255, 0.3);
+    animation: pulse-gold 2s ease-in-out infinite;
+  }
+
+  @keyframes pulse-gold {
+    0%, 100% {
+      box-shadow: 
+        0 0 20px rgba(255, 215, 0, 0.4),
+        0 8px 32px rgba(0, 0, 0, 0.3),
+        inset 0 1px 0 rgba(255, 255, 255, 0.3);
+    }
+    50% {
+      box-shadow: 
+        0 0 30px rgba(255, 215, 0, 0.6),
+        0 8px 32px rgba(0, 0, 0, 0.3),
+        inset 0 1px 0 rgba(255, 255, 255, 0.3);
+    }
+  }
+
+  .on-block-label {
+    background: linear-gradient(135deg, rgba(178, 34, 34, 0.9), rgba(139, 0, 0, 0.9));
+    color: #ffd700;
+    font-family: 'Cinzel', serif;
+    font-size: 0.75em;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 10px;
+    margin-top: 5px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    border: 1px solid rgba(255, 215, 0, 0.5);
   }
 
   body.night-theme .player-card {
@@ -157,6 +188,45 @@
       inset 0 1px 0 rgba(255, 255, 255, 0.1);
   }
 
+  body.day-theme .player-card.nominated {
+    border-color: rgba(0, 191, 255, 0.8);
+    border-width: 3px;
+    box-shadow: 
+      0 0 20px rgba(0, 191, 255, 0.4),
+      0 8px 32px rgba(0, 0, 0, 0.3),
+      inset 0 1px 0 rgba(255, 255, 255, 0.3);
+    animation: pulse-blue 2s ease-in-out infinite;
+  }
+
+  @keyframes pulse-blue {
+    0%, 100% {
+      box-shadow: 
+        0 0 20px rgba(0, 191, 255, 0.4),
+        0 8px 32px rgba(0, 0, 0, 0.3),
+        inset 0 1px 0 rgba(255, 255, 255, 0.3);
+    }
+    50% {
+      box-shadow: 
+        0 0 30px rgba(0, 191, 255, 0.6),
+        0 8px 32px rgba(0, 0, 0, 0.3),
+        inset 0 1px 0 rgba(255, 255, 255, 0.3);
+    }
+  }
+
+  .nominated-label {
+    background: linear-gradient(135deg, rgba(0, 100, 200, 0.9), rgba(0, 50, 150, 0.9));
+    color: #00bfff;
+    font-family: 'Cinzel', serif;
+    font-size: 0.65em;
+    font-weight: 600;
+    padding: 2px 6px;
+    border-radius: 8px;
+    margin-top: 3px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border: 1px solid rgba(0, 191, 255, 0.5);
+    white-space: nowrap;
+  }
 
   .player-name {
     font-weight: 600;
@@ -219,6 +289,66 @@
       0 10px 40px rgba(0, 0, 0, 0.5),
       inset 0 2px 0 rgba(255, 255, 255, 0.2);
     text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+  }
+
+  #votesToExecuteDisplay {
+    position: absolute;
+    top: calc(50% + 50px);
+    left: 50%;
+    transform: translateX(-50%);
+    text-align: center;
+    z-index: 10;
+    font-family: 'Cinzel', serif;
+    font-size: 1.2em;
+    font-weight: 600;
+    color: #ffd700;
+    text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.8);
+    background: rgba(0, 0, 0, 0.6);
+    padding: 8px 20px;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 215, 0, 0.3);
+  }
+
+  body.day-theme #votesToExecuteDisplay {
+    display: block;
+  }
+
+  body.night-theme #votesToExecuteDisplay {
+    display: none;
+  }
+
+  #onBlockDisplay {
+    position: absolute;
+    top: calc(50% + 60px);
+    left: 50%;
+    transform: translateX(-50%);
+    text-align: center;
+    z-index: 10;
+    background: linear-gradient(135deg, rgba(139, 0, 0, 0.9), rgba(178, 34, 34, 0.9));
+    border: 2px solid rgba(255, 215, 0, 0.5);
+    border-radius: 15px;
+    padding: 15px 30px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    display: none;
+  }
+
+  body.day-theme #onBlockDisplay.visible {
+    display: block;
+  }
+
+  .on-block-name {
+    font-family: 'Cinzel', serif;
+    font-size: 1.5em;
+    font-weight: 600;
+    color: #ffd700;
+    text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.8);
+    margin-bottom: 5px;
+  }
+
+  .on-block-votes {
+    font-family: 'Crimson Text', serif;
+    font-size: 1.2em;
+    color: #f0e6d2;
   }
 
   #playerStats {
@@ -357,8 +487,19 @@
     color: #90ee90;
   }
 
-  .stat-dead {
-    color: #ff6b6b;
+  .stat-votes {
+    color: #ffd700;
+    font-weight: 600;
+    font-size: 1.1em;
+    text-shadow: 0 0 4px rgba(255, 215, 0, 0.3);
+  }
+
+  body.day-theme .votes-needed {
+    display: flex !important;
+  }
+
+  body.night-theme .votes-needed {
+    display: none !important;
   }
 
   @keyframes fadeIn {
@@ -399,6 +540,13 @@
 </head>
 <body>
 <div id="phaseDisplay" class="connecting">Connecting...</div>
+<div id="votesToExecuteDisplay" style="display: none;">
+  <span id="votesToExecuteText">to execute 0</span>
+</div>
+<div id="onBlockDisplay" style="display: none;">
+  <div class="on-block-name" id="onBlockName"></div>
+  <div class="on-block-votes">Votes: <span id="onBlockVotes">0</span></div>
+</div>
 <div id="playerStats">
   <div class="stat-line stat-total">Total: <span id="totalPlayers">0</span></div>
   <div class="stat-line">
@@ -453,6 +601,11 @@
 <script>
 const playersContainer = document.getElementById("playersContainer");
 const phaseDisplay = document.getElementById("phaseDisplay");
+const votesToExecuteDisplay = document.getElementById("votesToExecuteDisplay");
+const votesToExecuteText = document.getElementById("votesToExecuteText");
+const onBlockDisplay = document.getElementById("onBlockDisplay");
+const onBlockName = document.getElementById("onBlockName");
+const onBlockVotesDisplay = document.getElementById("onBlockVotes");
 
 // Replace with your server IP
 const ws = new WebSocket('ws://YOUR_IP:8080');
@@ -460,6 +613,8 @@ const ws = new WebSocket('ws://YOUR_IP:8080');
 let players = [];
 let phase = "Night";
 let phaseNumber = 1;
+let onBlockPlayer = null;
+let nominatedPlayer = null;
 
 ws.onopen = () => {
   console.log("WebSocket connected!");
@@ -473,6 +628,9 @@ ws.onmessage = (msg) => {
   players = data.players || [];
   phase = data.phase || phase;
   phaseNumber = data.phaseNumber || phaseNumber;
+  onBlockPlayer = data.onBlockPlayer !== undefined ? data.onBlockPlayer : onBlockPlayer;
+  onBlockVotes = data.onBlockVotes !== undefined ? data.onBlockVotes : onBlockVotes;
+  nominatedPlayer = data.nominatedPlayer !== undefined ? data.nominatedPlayer : nominatedPlayer;
   
   render();
 };
@@ -495,6 +653,24 @@ function render() {
   document.getElementById('alivePlayers').textContent = alivePlayers;
   document.getElementById('deadPlayers').textContent = deadPlayers;
   
+  // Update on-block display - hide the center widget
+  onBlockDisplay.style.display = 'none';
+  
+  // Calculate votes needed to execute
+  // If someone is on the block: max(half alive, votes on block + 1)
+  // Otherwise: half the alive players (rounded up)
+  const halfAlive = Math.ceil(alivePlayers / 2);
+  const votesNeeded = onBlockPlayer !== null 
+    ? Math.max(halfAlive, onBlockVotes + 1)
+    : halfAlive;
+  
+  // Update votes to execute display below phase widget
+  const votesNeededText = nominatedPlayer !== null && players[nominatedPlayer] 
+    ? `Votes needed to execute ${players[nominatedPlayer].name}: ${votesNeeded}`
+    : `Votes needed to execute: ${votesNeeded}`;
+  votesToExecuteText.textContent = votesNeededText;
+  votesToExecuteDisplay.style.display = phase.toLowerCase() === 'day' ? 'block' : 'none';
+  
   // Update distribution information
   updateDistributionInfo();
 
@@ -503,7 +679,7 @@ function render() {
   const containerHeight = playersContainer.clientHeight;
   const vw = containerWidth / 100;
   const safeMargin = Math.max(60, Math.min(8 * vw, 80)); // Safe margin from edges
-  const maxRadiusX = (containerWidth - safeMargin * 2) / 2.2;
+  const maxRadiusX = (containerWidth - safeMargin * 2) / 2.0;
   const maxRadiusY = (containerHeight - safeMargin * 2) / 2.0; // Extend to bottom with margins
   const centerX = containerWidth / 2;
   const total = players.length;
@@ -524,7 +700,9 @@ function render() {
     const y = centerY + radiusY * Math.sin(angle);
 
     const div = document.createElement("div");
-    div.className = `player-card ${!p.alive ? 'dead' : ''} ${p.alive ? 'alive' : ''}`;
+    const isOnBlock = phase.toLowerCase() === 'day' && onBlockPlayer === i;
+    const isNominated = phase.toLowerCase() === 'day' && nominatedPlayer === i;
+    div.className = `player-card ${!p.alive ? 'dead' : ''} ${p.alive && !isOnBlock ? 'alive' : ''} ${isOnBlock ? 'on-block' : ''} ${isNominated ? 'nominated' : ''}`;
     
     div.style.left = `${x}px`;
     div.style.top = `${y}px`;
@@ -535,19 +713,39 @@ function render() {
 
     const statusDiv = document.createElement("div");
     statusDiv.className = "player-status";
+
+    div.appendChild(nameDiv);
     
-    if (p.alive) {
+    // Add nominated label if this player is nominated during day
+    if (phase.toLowerCase() === 'day' && nominatedPlayer === i) {
+      const nominatedLabel = document.createElement("div");
+      nominatedLabel.className = "nominated-label";
+      nominatedLabel.textContent = "⭐ Nominated";
+      div.appendChild(nominatedLabel);
+    } else if (phase.toLowerCase() === 'day' && onBlockPlayer === i) {
+      const onBlockLabel = document.createElement("div");
+      onBlockLabel.className = "on-block-label";
+      onBlockLabel.innerHTML = `🗡️ ${onBlockVotes} Vote${onBlockVotes !== 1 ? 's' : ''}`;
+      div.appendChild(onBlockLabel);
+    } else if (p.alive) {
       const candle = document.createElement("span");
       candle.className = "status-icon";
       candle.textContent = "🕯️";
       candle.style.color = "#ffa500";
       statusDiv.appendChild(candle);
-    } else {
+    } else if (!p.alive) {
       const skull = document.createElement("span");
       skull.className = "status-icon";
       skull.textContent = "💀";
       skull.style.color = "#dc143c";
       statusDiv.appendChild(skull);
+      if (p.ghostVote) {
+      const ghost = document.createElement("span");
+      ghost.className = "status-icon";
+      ghost.textContent = "👻";
+      ghost.style.color = "#9370db";
+      statusDiv.appendChild(ghost);
+      }
     }
     
     if (p.traveler) {
@@ -558,16 +756,8 @@ function render() {
       statusDiv.appendChild(traveler);
     }
     
-    if (p.ghostVote && !p.alive) {
-      const ghost = document.createElement("span");
-      ghost.className = "status-icon";
-      ghost.textContent = "👻";
-      ghost.style.color = "#9370db";
-      statusDiv.appendChild(ghost);
-    }
-
-    div.appendChild(nameDiv);
     div.appendChild(statusDiv);
+
     playersContainer.appendChild(div);
   });
 }

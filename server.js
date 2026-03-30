@@ -1,7 +1,7 @@
 const WebSocket = require('ws');
 const wss = new WebSocket.Server({ port: 8080 });
 
-let state = { players: [], phase: 'Night', phaseNumber: 1 };
+let state = { players: [], phase: 'Night', phaseNumber: 1, onBlockPlayer: null, onBlockVotes: 0, nominatedPlayer: null };
 
 wss.on('connection', ws => {
   // Send current state to new client
