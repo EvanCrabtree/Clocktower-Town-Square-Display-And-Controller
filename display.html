@@ -223,7 +223,7 @@
 
   #playerStats {
     position: absolute;
-    top: 20%;
+    bottom: calc(50% + 60px);
     left: 50%;
     transform: translateX(-50%);
     background: rgba(0, 0, 0, 0.6);
@@ -506,27 +506,20 @@ function render() {
   const maxRadiusX = (containerWidth - safeMargin * 2) / 2.2;
   const maxRadiusY = (containerHeight - safeMargin * 2) / 2.0; // Extend to bottom with margins
   const centerX = containerWidth / 2;
-  const centerY = containerHeight * 0.5; // Center vertically for full coverage
   const total = players.length;
+  const centerY = containerHeight * 0.5;
 
-  // Adjust oval radii based on number of players to fit up to 20
-  let radiusX, radiusY;
-  if (total <= 8) {
-    radiusX = maxRadiusX * 0.5;
-    radiusY = maxRadiusY * 0.5;
-  } else if (total <= 12) {
-    radiusX = maxRadiusX * 0.7;
-    radiusY = maxRadiusY * 0.7;
-  } else if (total <= 16) {
-    radiusX = maxRadiusX * 0.85;
-    radiusY = maxRadiusY * 0.85;
-  } else {
-    radiusX = maxRadiusX;
-    radiusY = maxRadiusY;
-  }
+  // Use constant maximum radius for all player counts
+  const radiusX = maxRadiusX * 0.95;
+  const radiusY = maxRadiusY * 0.95;
+  
+  // Calculate angle step based on player count - more players = smaller angles between them
+  // Start from top and spread evenly around the oval
+  const startAngle = -Math.PI / 2; // Top of oval
+  const angleStep = (2 * Math.PI) / total;
 
   players.forEach((p, i) => {
-    const angle = (i / total) * 2 * Math.PI - Math.PI / 2; // Start from top
+    const angle = startAngle + (i * angleStep);
     const x = centerX + radiusX * Math.cos(angle);
     const y = centerY + radiusY * Math.sin(angle);
 
