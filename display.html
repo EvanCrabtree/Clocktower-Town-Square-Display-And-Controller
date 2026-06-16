@@ -564,7 +564,7 @@
     <span class="icon-key-icon" style="color: #dc143c;">💀</span>
     <span>Dead Player</span>
   </div>
-  <div class="icon-key-item">
+  <div class="icon-key-item" id="travelerLegendItem">
     <span class="icon-key-icon" style="color: #4169e1;">🎒</span>
     <span>Traveler</span>
   </div>
@@ -591,7 +591,7 @@
     <span class="distribution-role demon">Demon:</span>
     <span class="distribution-count" id="demonCount">0</span>
   </div>
-  <div class="distribution-item">
+  <div class="distribution-item" id="travelerRow">
     <span class="distribution-role travelers">Travelers:</span>
     <span class="distribution-count" id="travelersCount">0</span>
   </div>
@@ -801,6 +801,17 @@ function updateDistributionInfo() {
   document.getElementById('minionsCount').textContent = minions;
   document.getElementById('demonCount').textContent = demons;
   document.getElementById('travelersCount').textContent = travelers;
+  
+  // Hide traveler row and legend item if no travelers
+  const travelerRow = document.getElementById('travelerRow');
+  const travelerLegendItem = document.getElementById('travelerLegendItem');
+  if (travelers === 0) {
+    travelerRow.style.display = 'none';
+    travelerLegendItem.style.display = 'none';
+  } else {
+    travelerRow.style.display = 'flex';
+    travelerLegendItem.style.display = 'flex';
+  }
 }
 
 </script>
