@@ -596,7 +596,7 @@ ws.onclose = () => {
 
 ws.onmessage = (msg) => {
   const data = JSON.parse(msg.data);
-  if (data.players) players = data.players;
+  if (data.players) state.players = data.players;
   if (data.phase) state.phase = data.phase;
   if (data.phaseNumber) phaseNumber.value = data.phaseNumber;
   
@@ -629,7 +629,7 @@ function sendUpdate() {
 
 function renderPlayers() {
   playersContainer.innerHTML = "";
-  players.forEach((p, index) => {
+  state.players.forEach((p, index) => {
     const card = document.createElement("div");
     card.className = `player-card ${!p.alive ? 'dead' : ''} ${state.onBlockPlayer === index ? 'on-block' : ''} ${state.nominatedPlayer === index ? 'nominated' : ''}`;
     card.dataset.index = index;
@@ -647,7 +647,7 @@ function renderPlayers() {
     const moveDownBtn = document.createElement("button");
     moveDownBtn.className = "order-btn";
     moveDownBtn.innerHTML = "↓";
-    moveDownBtn.disabled = index === players.length - 1;
+    moveDownBtn.disabled = index === state.players.length - 1;
     moveDownBtn.onclick = (e) => { e.stopPropagation(); movePlayer(index, 1); };
     
     orderControls.appendChild(moveUpBtn);
@@ -713,6 +713,12 @@ function renderPlayers() {
     nominateBtn.onclick = (e) => { e.stopPropagation(); toggleNominated(index); };
     actionsDiv.appendChild(nominateBtn);
 
+    const removeBtn = document.createElement("button");
+    removeBtn.className = "btn danger";
+    removeBtn.textContent = "Remove";
+    removeBtn.onclick = (e) => { e.stopPropagation(); removePlayer(index); };
+    actionsDiv.appendChild(removeBtn);
+
     card.appendChild(nameDiv);
     card.appendChild(statusDiv);
     card.appendChild(actionsDiv);
@@ -776,7 +782,7 @@ function toggleNominated(index) {
 }
 
 function killOrRevive(index) {
-  const player = players[index];
+  const player = state.players[index];
   player.alive = !player.alive;
   sendUpdate();
 }
@@ -785,14 +791,39 @@ function movePlayer(index, direction) {
   const newIndex = index + direction;
   
   // Check bounds
-  if (newIndex < 0 || newIndex >= players.length) {
+  if (newIndex < 0 || newIndex >= state.players.length) {
     return;
   }
   
   // Swap players
-  const temp = players[index];
-  players[index] = players[newIndex];
-  players[newIndex] = temp;
+  const temp = state.players[index];
+  state.players[index] = state.players[newIndex];
+  state.players[newIndex] = temp;
+  
+  sendUpdate();
+}
+
+function removePlayer(index) {
+  if (!confirm(`Remove ${state.players[index].name}?`)) {
+    return;
+  }
+  
+  // Adjust on-block and nominated indices if necessary
+  if (state.onBlockPlayer === index) {
+    state.onBlockPlayer = null;
+    state.onBlockVotes = 0;
+  } else if (state.onBlockPlayer !== null && state.onBlockPlayer > index) {
+    state.onBlockPlayer--;
+  }
+  
+  if (state.nominatedPlayer === index) {
+    state.nominatedPlayer = null;
+  } else if (state.nominatedPlayer !== null && state.nominatedPlayer > index) {
+    state.nominatedPlayer--;
+  }
+  
+  // Remove player from array
+  state.players.splice(index, 1);
   
   sendUpdate();
 }
@@ -825,8 +856,8 @@ function bulkImportPlayers() {
   // Add players
   names.forEach(name => {
     // Check if player already exists
-    if (!players.find(p => p.name.toLowerCase() === name.toLowerCase())) {
-      players.push({ name, alive: true, traveler: false, ghostVote: true });
+    if (!state.players.find(p => p.name.toLowerCase() === name.toLowerCase())) {
+      state.players.push({ name, alive: true, traveler: false, ghostVote: true });
     }
   });
   
@@ -841,7 +872,7 @@ function clearBulkInput() {
 addPlayerBtn.onclick = () => {
   const name = newPlayerName.value.trim();
   if (name) {
-    players.push({ name, alive: true, traveler: false, ghostVote: true });
+    state.players.push({ name, alive: true, traveler: false, ghostVote: true });
     sendUpdate();
     newPlayerName.value = "";
   }
