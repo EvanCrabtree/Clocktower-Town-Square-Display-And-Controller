@@ -21,7 +21,8 @@ const mimeTypes = {
   '.ttf': 'application/font-ttf',
   '.eot': 'application/vnd.ms-fontobject',
   '.otf': 'application/font-otf',
-  '.wasm': 'application/wasm'
+  '.wasm': 'application/wasm',
+  '.ico': 'image/x-icon'
 };
 
 const server = http.createServer((req, res) => {
@@ -93,11 +94,11 @@ const server = http.createServer((req, res) => {
   const filePath = path.join(__dirname, pathname);
   console.log(`Looking for file: ${filePath}`);
   
-  // Check if file exists and is one of our IP-specific files
+  // Check if file exists and is one of our IP-specific files or favicon
   const displayFile = `display_${IP.replace(/\./g, '_')}.html`;
   const controllerFile = `controller_${IP.replace(/\./g, '_')}.html`;
   
-  if (fs.existsSync(filePath) && (pathname.includes(displayFile) || pathname.includes(controllerFile))) {
+  if (fs.existsSync(filePath) && (pathname.includes(displayFile) || pathname.includes(controllerFile) || pathname === '/favicon.ico')) {
     console.log(`Serving file: ${pathname}`);
     // Get file extension
     const ext = path.parse(filePath).ext;
