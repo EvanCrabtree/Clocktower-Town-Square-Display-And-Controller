@@ -574,6 +574,7 @@ const clearBulkBtn = document.getElementById("clearBulkBtn");
 
 let players = [];
 let state = { players: [], onBlockPlayer: null, onBlockVotes: 0, nominatedPlayer: null };
+let previousPhase = null;
 
 // Replace with your server IP
 const ws = new WebSocket('ws://YOUR_IP:8080');
@@ -610,15 +611,21 @@ ws.onclose = () => {
 ws.onmessage = (msg) => {
   const data = JSON.parse(msg.data);
   if (data.players) state.players = data.players;
-  if (data.phase) state.phase = data.phase;
-  if (data.phaseNumber) phaseNumber.value = data.phaseNumber;
-  
-  // Clear on-block and nominated when transitioning from Day to Night
-  if (state.phase === 'Day' && phaseSelect.value === 'Night') {
-    state.onBlockPlayer = null;
-    state.onBlockVotes = 0;
-    state.nominatedPlayer = null;
+  if (data.phase) {
+    // Clear nominated and on-block when transitioning to Night
+    if (previousPhase === 'Day' && data.phase === 'Night') {
+      state.onBlockPlayer = null;
+      state.onBlockVotes = 0;
+      state.nominatedPlayer = null;
+    }
+    state.phase = data.phase;
+    phaseSelect.value = data.phase;
+    previousPhase = data.phase;
   }
+  if (data.phaseNumber) phaseNumber.value = data.phaseNumber;
+  if (data.onBlockPlayer !== undefined) state.onBlockPlayer = data.onBlockPlayer;
+  if (data.onBlockVotes !== undefined) state.onBlockVotes = data.onBlockVotes;
+  if (data.nominatedPlayer !== undefined) state.nominatedPlayer = data.nominatedPlayer;
   
   renderPlayers();
 };
@@ -848,12 +855,25 @@ function nextPhase() {
   } else {
     phaseSelect.value = 'Night';
     phaseNumber.value = String(Number(phaseNumber.value) + 1);
+    // Clear nominated and on-block when transitioning to Night
+    state.onBlockPlayer = null;
+    state.onBlockVotes = 0;
+    state.nominatedPlayer = null;
   }
   sendUpdate();
 }
 
 // Initialize event listeners
-phaseSelect.onchange = sendUpdate;
+phaseSelect.onchange = () => {
+  // Clear nominated and on-block when transitioning to Night
+  if (phaseSelect.value === 'Night' && previousPhase === 'Day') {
+    state.onBlockPlayer = null;
+    state.onBlockVotes = 0;
+    state.nominatedPlayer = null;
+  }
+  previousPhase = phaseSelect.value;
+  sendUpdate();
+};
 phaseNumber.onchange = sendUpdate;
 nextPhaseBtn.onclick = nextPhase;
 
