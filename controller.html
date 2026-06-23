@@ -20,6 +20,11 @@
     min-height: 100vh;
     padding: 20px;
     position: relative;
+    transition: background 1s ease;
+  }
+
+  body.day-theme {
+    background: linear-gradient(135deg, #2a4a3a 0%, #3a5f4a 50%, #4a6f5a 100%);
   }
 
   body::before {
@@ -182,6 +187,88 @@
   .player-card:hover {
     transform: translateY(-2px);
     box-shadow: 0 12px 48px rgba(139, 69, 19, 0.2);
+  }
+
+  .player-card.selected {
+    border-color: #d4af37;
+    box-shadow: 0 0 25px rgba(212, 175, 55, 0.4);
+  }
+
+  .player-card.dragging {
+    opacity: 0.4;
+  }
+
+  .player-card.drag-over {
+    border-color: #90ee90;
+    box-shadow: 0 0 20px rgba(144, 238, 144, 0.4);
+  }
+
+  .drag-handle {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    color: #a08060;
+    font-size: 1.2em;
+    cursor: grab;
+    user-select: none;
+  }
+
+  .drag-handle:active {
+    cursor: grabbing;
+  }
+
+  .select-hint {
+    font-size: 0.85em;
+    color: #a08060;
+    font-style: italic;
+  }
+
+  .status-badge.executed {
+    background: rgba(255, 140, 0, 0.2);
+    border-color: rgba(255, 140, 0, 0.5);
+    color: #ff8c00;
+  }
+
+  .status-badge.killed {
+    background: rgba(178, 34, 34, 0.25);
+    border-color: rgba(178, 34, 34, 0.5);
+    color: #ff6b6b;
+  }
+
+  .status-badge.nominator {
+    background: rgba(0, 191, 255, 0.2);
+    border-color: rgba(0, 191, 255, 0.4);
+    color: #00bfff;
+  }
+
+  .status-badge.nominee {
+    background: rgba(255, 107, 107, 0.2);
+    border-color: rgba(255, 107, 107, 0.4);
+    color: #ff6b6b;
+  }
+
+  .nominate-panel {
+    margin-top: 15px;
+    padding-top: 15px;
+    border-top: 1px solid rgba(139, 69, 19, 0.3);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .nominate-panel label {
+    font-family: 'Cinzel', serif;
+    color: #00bfff;
+    font-size: 0.9em;
+  }
+
+  .nominate-panel select {
+    width: 100%;
+  }
+
+  .nominate-panel-buttons {
+    display: flex;
+    gap: 8px;
   }
 
   .order-controls {
@@ -574,8 +661,12 @@ const bulkImportBtn = document.getElementById("bulkImportBtn");
 const clearBulkBtn = document.getElementById("clearBulkBtn");
 
 let players = [];
-let state = { players: [], onBlockPlayer: null, onBlockVotes: 0, nominatedPlayer: null };
+let state = { players: [], onBlockPlayer: null, onBlockVotes: 0, nominatedPlayer: null, nominatorPlayer: null };
 let previousPhase = null;
+let selectedPlayer = null;
+let nominatingPlayer = null; // index of player whose nominate panel is open
+let blockingPlayer = null;   // index of player whose put-on-block vote picker is open
+let dragIndex = null;
 
 // Replace with your server IP
 const ws = new WebSocket('ws://YOUR_IP:8080');
@@ -615,9 +706,7 @@ ws.onmessage = (msg) => {
   if (data.phase) {
     // Clear nominated and on-block when transitioning to Night
     if (previousPhase === 'Day' && data.phase === 'Night') {
-      state.onBlockPlayer = null;
-      state.onBlockVotes = 0;
-      state.nominatedPlayer = null;
+      clearDayState();
     }
     state.phase = data.phase;
     phaseSelect.value = data.phase;
@@ -627,6 +716,7 @@ ws.onmessage = (msg) => {
   if (data.onBlockPlayer !== undefined) state.onBlockPlayer = data.onBlockPlayer;
   if (data.onBlockVotes !== undefined) state.onBlockVotes = data.onBlockVotes;
   if (data.nominatedPlayer !== undefined) state.nominatedPlayer = data.nominatedPlayer;
+  if (data.nominatorPlayer !== undefined) state.nominatorPlayer = data.nominatorPlayer;
   
   renderPlayers();
 };
@@ -638,7 +728,8 @@ function sendUpdate() {
     phaseNumber: Number(phaseNumber.value),
     onBlockPlayer: state.onBlockPlayer,
     onBlockVotes: state.onBlockVotes,
-    nominatedPlayer: state.nominatedPlayer
+    nominatedPlayer: state.nominatedPlayer,
+    nominatorPlayer: state.nominatorPlayer
   };
   if (ws.readyState === WebSocket.OPEN) {
     ws.send(JSON.stringify(data));
@@ -646,31 +737,67 @@ function sendUpdate() {
   renderPlayers();
 }
 
+// Clear all day-scoped state: block, nomination, and per-player nominate flags
+function clearDayState() {
+  state.onBlockPlayer = null;
+  state.onBlockVotes = 0;
+  state.nominatedPlayer = null;
+  state.nominatorPlayer = null;
+  state.players.forEach(p => { p.hasNominated = false; p.hasBeenNominated = false; });
+  nominatingPlayer = null;
+}
+
 
 
 function renderPlayers() {
+  // Match display theme: green by day, dark by night
+  document.body.classList.toggle('day-theme', phaseSelect.value === 'Day');
   playersContainer.innerHTML = "";
   state.players.forEach((p, index) => {
+    const isSelected = selectedPlayer === index;
     const card = document.createElement("div");
-    card.className = `player-card ${!p.alive ? 'dead' : ''} ${state.onBlockPlayer === index ? 'on-block' : ''} ${state.nominatedPlayer === index ? 'nominated' : ''}`;
+    card.className = `player-card ${!p.alive ? 'dead' : ''} ${state.onBlockPlayer === index ? 'on-block' : ''} ${state.nominatedPlayer === index ? 'nominated' : ''} ${isSelected ? 'selected' : ''}`;
     card.dataset.index = index;
+
+    // Click card to select/deselect (reveals action buttons).
+    // Ignore clicks on interactive children so dropdowns/inputs don't collapse the card.
+    card.onclick = (e) => {
+      if (e.target.closest('button, select, input, label, option')) return;
+      selectedPlayer = isSelected ? null : index;
+      if (!isSelected) nominatingPlayer = null;
+      renderPlayers();
+    };
+
+    // Drag-to-reorder
+    card.draggable = true;
+    card.ondragstart = (e) => { dragIndex = index; card.classList.add('dragging'); e.dataTransfer.effectAllowed = 'move'; };
+    card.ondragend = () => { dragIndex = null; renderPlayers(); };
+    card.ondragover = (e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; if (dragIndex !== index) card.classList.add('drag-over'); };
+    card.ondragleave = () => card.classList.remove('drag-over');
+    card.ondrop = (e) => { e.preventDefault(); card.classList.remove('drag-over'); reorderPlayer(dragIndex, index); };
+
+    // Drag handle hint
+    const dragHandle = document.createElement("div");
+    dragHandle.className = "drag-handle";
+    dragHandle.innerHTML = "⠿";
+    card.appendChild(dragHandle);
 
     // Add order controls
     const orderControls = document.createElement("div");
     orderControls.className = "order-controls";
-    
+
     const moveUpBtn = document.createElement("button");
     moveUpBtn.className = "order-btn";
     moveUpBtn.innerHTML = "↑";
     moveUpBtn.disabled = index === 0;
     moveUpBtn.onclick = (e) => { e.stopPropagation(); movePlayer(index, -1); };
-    
+
     const moveDownBtn = document.createElement("button");
     moveDownBtn.className = "order-btn";
     moveDownBtn.innerHTML = "↓";
     moveDownBtn.disabled = index === state.players.length - 1;
     moveDownBtn.onclick = (e) => { e.stopPropagation(); movePlayer(index, 1); };
-    
+
     orderControls.appendChild(moveUpBtn);
     orderControls.appendChild(moveDownBtn);
     card.appendChild(orderControls);
@@ -681,19 +808,30 @@ function renderPlayers() {
 
     const statusDiv = document.createElement("div");
     statusDiv.className = "player-status";
-    
+
     const aliveBadge = document.createElement("div");
-    aliveBadge.className = `status-badge ${p.alive ? 'alive' : 'dead'}`;
-    aliveBadge.innerHTML = p.alive ? '🕯️ Alive' : '💀 Dead';
+    if (p.alive) {
+      aliveBadge.className = "status-badge alive";
+      aliveBadge.innerHTML = '🕯️ Alive';
+    } else if (p.deathCause === 'executed') {
+      aliveBadge.className = "status-badge executed";
+      aliveBadge.innerHTML = '⚖️ Executed';
+    } else if (p.deathCause === 'killed') {
+      aliveBadge.className = "status-badge killed";
+      aliveBadge.innerHTML = '🔪 Killed';
+    } else {
+      aliveBadge.className = "status-badge dead";
+      aliveBadge.innerHTML = '💀 Dead';
+    }
     statusDiv.appendChild(aliveBadge);
-    
+
     if (p.traveler) {
       const travelerBadge = document.createElement("div");
       travelerBadge.className = "status-badge traveler";
       travelerBadge.innerHTML = '🎒 Traveler';
       statusDiv.appendChild(travelerBadge);
     }
-    
+
     if (p.ghostVote && !p.alive) {
       const ghostBadge = document.createElement("div");
       ghostBadge.className = "status-badge ghost";
@@ -701,14 +839,56 @@ function renderPlayers() {
       statusDiv.appendChild(ghostBadge);
     }
 
+    if (p.hasNominated) {
+      const nomBadge = document.createElement("div");
+      nomBadge.className = "status-badge nominator";
+      nomBadge.innerHTML = '🕐 Nominator';
+      statusDiv.appendChild(nomBadge);
+    }
+
+    if (p.hasBeenNominated) {
+      const nomBadge = document.createElement("div");
+      nomBadge.className = "status-badge nominee";
+      nomBadge.innerHTML = '☠️ Nominee';
+      statusDiv.appendChild(nomBadge);
+    }
+
+    card.appendChild(nameDiv);
+    card.appendChild(statusDiv);
+
+    // Buttons only shown when player selected
+    if (!isSelected) {
+      const hint = document.createElement("div");
+      hint.className = "select-hint";
+      hint.textContent = "Click to manage";
+      card.appendChild(hint);
+      playersContainer.appendChild(card);
+      return;
+    }
+
     const actionsDiv = document.createElement("div");
     actionsDiv.className = "player-actions";
 
-    const aliveBtn = document.createElement("button");
-    aliveBtn.className = "btn";
-    aliveBtn.textContent = p.alive ? "Kill" : "Revive";
-    aliveBtn.onclick = (e) => { e.stopPropagation(); killOrRevive(index); };
-    actionsDiv.appendChild(aliveBtn);
+    if (p.alive) {
+      // Two distinct death causes
+      const executeBtn = document.createElement("button");
+      executeBtn.className = "btn danger";
+      executeBtn.textContent = "Execute";
+      executeBtn.onclick = (e) => { e.stopPropagation(); killPlayer(index, 'executed'); };
+      actionsDiv.appendChild(executeBtn);
+
+      const killBtn = document.createElement("button");
+      killBtn.className = "btn danger";
+      killBtn.textContent = "Kill";
+      killBtn.onclick = (e) => { e.stopPropagation(); killPlayer(index, 'killed'); };
+      actionsDiv.appendChild(killBtn);
+    } else {
+      const reviveBtn = document.createElement("button");
+      reviveBtn.className = "btn";
+      reviveBtn.textContent = "Revive";
+      reviveBtn.onclick = (e) => { e.stopPropagation(); revivePlayer(index); };
+      actionsDiv.appendChild(reviveBtn);
+    }
 
     const travelerBtn = document.createElement("button");
     travelerBtn.className = "btn";
@@ -716,23 +896,47 @@ function renderPlayers() {
     travelerBtn.onclick = (e) => { e.stopPropagation(); p.traveler = !p.traveler; sendUpdate(); };
     actionsDiv.appendChild(travelerBtn);
 
-    const ghostBtn = document.createElement("button");
-    ghostBtn.className = "btn";
-    ghostBtn.textContent = p.ghostVote ? "Remove Ghost" : "Add Ghost";
-    ghostBtn.onclick = (e) => { e.stopPropagation(); p.ghostVote = !p.ghostVote; sendUpdate(); };
-    actionsDiv.appendChild(ghostBtn);
+    // Remove Ghost only meaningful for dead players
+    if (!p.alive) {
+      const ghostBtn = document.createElement("button");
+      ghostBtn.className = "btn";
+      ghostBtn.textContent = p.ghostVote ? "Remove Ghost" : "Add Ghost";
+      ghostBtn.onclick = (e) => { e.stopPropagation(); p.ghostVote = !p.ghostVote; sendUpdate(); };
+      actionsDiv.appendChild(ghostBtn);
+    }
 
-    const onBlockBtn = document.createElement("button");
-    onBlockBtn.className = "btn";
-    onBlockBtn.textContent = (state.onBlockPlayer === index) ? "Remove from Block" : "Put on Block";
-    onBlockBtn.onclick = (e) => { e.stopPropagation(); toggleOnBlock(index); };
-    actionsDiv.appendChild(onBlockBtn);
+    // Nominate and Put on Block only apply during the day
+    const isDay = phaseSelect.value === 'Day';
+    if (isDay) {
+      const onBlockBtn = document.createElement("button");
+      onBlockBtn.className = "btn";
+      onBlockBtn.textContent = (state.onBlockPlayer === index) ? "Remove from Block" : "Put on Block";
+      onBlockBtn.onclick = (e) => {
+        e.stopPropagation();
+        if (state.onBlockPlayer === index) {
+          toggleOnBlock(index); // removing — no picker needed
+        } else {
+          blockingPlayer = (blockingPlayer === index) ? null : index;
+          nominatingPlayer = null;
+          renderPlayers();
+        }
+      };
+      actionsDiv.appendChild(onBlockBtn);
 
-    const nominateBtn = document.createElement("button");
-    nominateBtn.className = "btn";
-    nominateBtn.textContent = (state.nominatedPlayer === index) ? "Un-nominate" : "Nominate";
-    nominateBtn.onclick = (e) => { e.stopPropagation(); toggleNominated(index); };
-    actionsDiv.appendChild(nominateBtn);
+      const nominateBtn = document.createElement("button");
+      nominateBtn.className = "btn";
+      nominateBtn.textContent = (state.nominatedPlayer === index) ? "Un-nominate" : "Nominate";
+      nominateBtn.onclick = (e) => {
+        e.stopPropagation();
+        if (state.nominatedPlayer === index) {
+          clearNomination();
+        } else {
+          nominatingPlayer = (nominatingPlayer === index) ? null : index;
+          renderPlayers();
+        }
+      };
+      actionsDiv.appendChild(nominateBtn);
+    }
 
     const removeBtn = document.createElement("button");
     removeBtn.className = "btn danger";
@@ -740,9 +944,92 @@ function renderPlayers() {
     removeBtn.onclick = (e) => { e.stopPropagation(); removePlayer(index); };
     actionsDiv.appendChild(removeBtn);
 
-    card.appendChild(nameDiv);
-    card.appendChild(statusDiv);
     card.appendChild(actionsDiv);
+
+    // Nominate panel: pick the nominator (incl. self)
+    if (nominatingPlayer === index) {
+      const panel = document.createElement("div");
+      panel.className = "nominate-panel";
+
+      const label = document.createElement("label");
+      label.textContent = `Who nominates ${p.name}?`;
+      panel.appendChild(label);
+
+      const select = document.createElement("select");
+      const placeholder = document.createElement("option");
+      placeholder.value = "";
+      placeholder.textContent = "Select nominator...";
+      select.appendChild(placeholder);
+      state.players.forEach((np, ni) => {
+        // A player can only nominate once per day
+        if (np.hasNominated && ni !== state.nominatorPlayer) return;
+        const opt = document.createElement("option");
+        opt.value = ni;
+        opt.textContent = ni === index ? `${np.name} (self)` : np.name;
+        select.appendChild(opt);
+      });
+      panel.appendChild(select);
+
+      const buttons = document.createElement("div");
+      buttons.className = "nominate-panel-buttons";
+
+      const confirmBtn = document.createElement("button");
+      confirmBtn.className = "btn btn-primary";
+      confirmBtn.textContent = "Confirm";
+      confirmBtn.onclick = (e) => {
+        e.stopPropagation();
+        if (select.value === "") return;
+        setNomination(parseInt(select.value), index);
+      };
+      buttons.appendChild(confirmBtn);
+
+      const cancelBtn = document.createElement("button");
+      cancelBtn.className = "btn";
+      cancelBtn.textContent = "Cancel";
+      cancelBtn.onclick = (e) => { e.stopPropagation(); nominatingPlayer = null; renderPlayers(); };
+      buttons.appendChild(cancelBtn);
+
+      panel.appendChild(buttons);
+      card.appendChild(panel);
+    }
+
+    // Put-on-block vote picker: choose vote count before confirming
+    if (blockingPlayer === index) {
+      const panel = document.createElement("div");
+      panel.className = "nominate-panel";
+
+      const label = document.createElement("label");
+      label.textContent = `Votes to put ${p.name} on the block:`;
+      panel.appendChild(label);
+
+      const votesInput = document.createElement("input");
+      votesInput.type = "number";
+      votesInput.className = "votes-input";
+      votesInput.min = "0";
+      votesInput.value = "0";
+      panel.appendChild(votesInput);
+
+      const buttons = document.createElement("div");
+      buttons.className = "nominate-panel-buttons";
+
+      const confirmBtn = document.createElement("button");
+      confirmBtn.className = "btn btn-primary";
+      confirmBtn.textContent = "Confirm";
+      confirmBtn.onclick = (e) => {
+        e.stopPropagation();
+        setOnBlock(index, parseInt(votesInput.value) || 0);
+      };
+      buttons.appendChild(confirmBtn);
+
+      const cancelBtn = document.createElement("button");
+      cancelBtn.className = "btn";
+      cancelBtn.textContent = "Cancel";
+      cancelBtn.onclick = (e) => { e.stopPropagation(); blockingPlayer = null; renderPlayers(); };
+      buttons.appendChild(cancelBtn);
+
+      panel.appendChild(buttons);
+      card.appendChild(panel);
+    }
 
     // Add on-block controls if this player is on the block
     if (state.onBlockPlayer === index) {
@@ -788,39 +1075,91 @@ function toggleOnBlock(index) {
   sendUpdate();
 }
 
+// Confirm putting a player on the block with a chosen vote count
+function setOnBlock(index, votes) {
+  state.onBlockPlayer = index;
+  state.onBlockVotes = votes;
+  blockingPlayer = null;
+  sendUpdate();
+}
+
 function updateOnBlockVotes(votes) {
   state.onBlockVotes = votes;
   sendUpdate();
 }
 
-function toggleNominated(index) {
-  if (state.nominatedPlayer === index) {
-    state.nominatedPlayer = null;
-  } else {
-    state.nominatedPlayer = index;
-  }
+// Set a nomination: nominator -> nominee. The active highlight moves to this pair,
+// but per-player nominator/nominee badges accumulate and persist until the next day.
+function setNomination(nominatorIndex, nomineeIndex) {
+  state.nominatorPlayer = nominatorIndex;
+  state.nominatedPlayer = nomineeIndex;
+  state.players[nominatorIndex].hasNominated = true;
+  state.players[nomineeIndex].hasBeenNominated = true;
+  nominatingPlayer = null;
   sendUpdate();
 }
 
-function killOrRevive(index) {
+// Clear the current active nomination (the highlighted pair). Also clears that pair's
+// sticky badges — this is the explicit "Un-nominate" undo.
+function clearNomination(send = true) {
+  if (state.nominatorPlayer !== null && state.players[state.nominatorPlayer]) {
+    state.players[state.nominatorPlayer].hasNominated = false;
+  }
+  if (state.nominatedPlayer !== null && state.players[state.nominatedPlayer]) {
+    state.players[state.nominatedPlayer].hasBeenNominated = false;
+  }
+  state.nominatorPlayer = null;
+  state.nominatedPlayer = null;
+  if (send) sendUpdate();
+}
+
+function killPlayer(index, cause) {
   const player = state.players[index];
-  player.alive = !player.alive;
+  player.alive = false;
+  player.deathCause = cause; // 'executed' or 'killed'
+  sendUpdate();
+}
+
+function revivePlayer(index) {
+  const player = state.players[index];
+  player.alive = true;
+  player.deathCause = null;
   sendUpdate();
 }
 
 function movePlayer(index, direction) {
   const newIndex = index + direction;
-  
+
   // Check bounds
   if (newIndex < 0 || newIndex >= state.players.length) {
     return;
   }
-  
-  // Swap players
-  const temp = state.players[index];
-  state.players[index] = state.players[newIndex];
-  state.players[newIndex] = temp;
-  
+
+  reorderPlayer(index, newIndex);
+}
+
+// Move player from `from` index to `to` index, shifting tracked indices to follow.
+function reorderPlayer(from, to) {
+  if (from === null || to === null || from === to) return;
+  if (from < 0 || to < 0 || from >= state.players.length || to >= state.players.length) return;
+
+  const remap = (i) => {
+    if (i === null) return null;
+    if (i === from) return to;
+    // Index shifts when an element is pulled out and reinserted
+    if (from < to) return (i > from && i <= to) ? i - 1 : i;
+    return (i >= to && i < from) ? i + 1 : i;
+  };
+
+  const [moved] = state.players.splice(from, 1);
+  state.players.splice(to, 0, moved);
+
+  state.onBlockPlayer = remap(state.onBlockPlayer);
+  state.nominatedPlayer = remap(state.nominatedPlayer);
+  state.nominatorPlayer = remap(state.nominatorPlayer);
+  if (selectedPlayer !== null) selectedPlayer = remap(selectedPlayer);
+  if (nominatingPlayer !== null) nominatingPlayer = remap(nominatingPlayer);
+
   sendUpdate();
 }
 
@@ -829,23 +1168,33 @@ function removePlayer(index) {
     return;
   }
   
-  // Adjust on-block and nominated indices if necessary
+  // Adjust tracked indices if necessary
   if (state.onBlockPlayer === index) {
     state.onBlockPlayer = null;
     state.onBlockVotes = 0;
   } else if (state.onBlockPlayer !== null && state.onBlockPlayer > index) {
     state.onBlockPlayer--;
   }
-  
+
   if (state.nominatedPlayer === index) {
     state.nominatedPlayer = null;
   } else if (state.nominatedPlayer !== null && state.nominatedPlayer > index) {
     state.nominatedPlayer--;
   }
-  
+
+  if (state.nominatorPlayer === index) {
+    state.nominatorPlayer = null;
+  } else if (state.nominatorPlayer !== null && state.nominatorPlayer > index) {
+    state.nominatorPlayer--;
+  }
+
+  // Clear selection/nominate UI tied to this card
+  selectedPlayer = null;
+  nominatingPlayer = null;
+
   // Remove player from array
   state.players.splice(index, 1);
-  
+
   sendUpdate();
 }
 
@@ -857,9 +1206,7 @@ function nextPhase() {
     phaseSelect.value = 'Night';
     phaseNumber.value = String(Number(phaseNumber.value) + 1);
     // Clear nominated and on-block when transitioning to Night
-    state.onBlockPlayer = null;
-    state.onBlockVotes = 0;
-    state.nominatedPlayer = null;
+    clearDayState();
   }
   sendUpdate();
 }
@@ -868,9 +1215,7 @@ function nextPhase() {
 phaseSelect.onchange = () => {
   // Clear nominated and on-block when transitioning to Night
   if (phaseSelect.value === 'Night' && previousPhase === 'Day') {
-    state.onBlockPlayer = null;
-    state.onBlockVotes = 0;
-    state.nominatedPlayer = null;
+    clearDayState();
   }
   previousPhase = phaseSelect.value;
   sendUpdate();
