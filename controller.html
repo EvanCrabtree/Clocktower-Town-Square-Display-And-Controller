@@ -400,6 +400,69 @@
     border-color: #dc143c;
   }
 
+  /* Execute = town vote (orange), Kill = demon/night (red) */
+  .btn.execute {
+    background: linear-gradient(135deg, rgba(255, 140, 0, 0.85), rgba(200, 100, 0, 0.85));
+    border-color: rgba(255, 165, 0, 0.5);
+  }
+
+  .btn.execute:hover {
+    box-shadow: 0 4px 20px rgba(255, 140, 0, 0.4);
+    border-color: #ff8c00;
+  }
+
+  .btn.kill {
+    background: linear-gradient(135deg, rgba(178, 34, 34, 0.85), rgba(110, 0, 0, 0.85));
+    border-color: rgba(220, 20, 60, 0.5);
+  }
+
+  .btn.kill:hover {
+    box-shadow: 0 4px 20px rgba(220, 20, 60, 0.4);
+    border-color: #dc143c;
+  }
+
+  .status-badge {
+    transition: all 0.2s ease;
+  }
+
+  .status-badge:hover {
+    transform: translateY(-1px);
+    filter: brightness(1.25);
+  }
+
+  /* Avatar token in the card header */
+  .player-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 10px;
+  }
+
+  .player-avatar {
+    width: 42px;
+    height: 42px;
+    flex: 0 0 42px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Cinzel', serif;
+    font-weight: 600;
+    font-size: 1.05em;
+    color: #fff;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+    border: 2px solid rgba(255, 255, 255, 0.25);
+    box-shadow: inset 0 1px 4px rgba(255, 255, 255, 0.2), 0 2px 6px rgba(0, 0, 0, 0.4);
+  }
+
+  .player-card.dead .player-avatar {
+    filter: grayscale(0.7) brightness(0.65);
+  }
+
+  .player-header .player-name {
+    margin-bottom: 0;
+  }
+
   .add-player-section {
     background: rgba(20, 20, 30, 0.8);
     border: 2px solid rgba(139, 69, 19, 0.3);
@@ -747,6 +810,19 @@ function clearDayState() {
   nominatingPlayer = null;
 }
 
+// Deterministic avatar color + initials from a name (mirrors the display)
+function avatarColor(name) {
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) % 360;
+  return `hsl(${h}, 45%, 42%)`;
+}
+
+function initials(name) {
+  const parts = name.trim().split(/\s+/);
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
 
 
 function renderPlayers() {
@@ -802,9 +878,20 @@ function renderPlayers() {
     orderControls.appendChild(moveDownBtn);
     card.appendChild(orderControls);
 
+    const header = document.createElement("div");
+    header.className = "player-header";
+
+    const avatar = document.createElement("div");
+    avatar.className = "player-avatar";
+    avatar.textContent = initials(p.name);
+    avatar.style.background = avatarColor(p.name);
+
     const nameDiv = document.createElement("div");
     nameDiv.className = "player-name";
     nameDiv.textContent = p.name;
+
+    header.appendChild(avatar);
+    header.appendChild(nameDiv);
 
     const statusDiv = document.createElement("div");
     statusDiv.className = "player-status";
@@ -853,7 +940,7 @@ function renderPlayers() {
       statusDiv.appendChild(nomBadge);
     }
 
-    card.appendChild(nameDiv);
+    card.appendChild(header);
     card.appendChild(statusDiv);
 
     // Buttons only shown when player selected
@@ -872,13 +959,13 @@ function renderPlayers() {
     if (p.alive) {
       // Two distinct death causes
       const executeBtn = document.createElement("button");
-      executeBtn.className = "btn danger";
+      executeBtn.className = "btn execute";
       executeBtn.textContent = "Execute";
       executeBtn.onclick = (e) => { e.stopPropagation(); killPlayer(index, 'executed'); };
       actionsDiv.appendChild(executeBtn);
 
       const killBtn = document.createElement("button");
-      killBtn.className = "btn danger";
+      killBtn.className = "btn kill";
       killBtn.textContent = "Kill";
       killBtn.onclick = (e) => { e.stopPropagation(); killPlayer(index, 'killed'); };
       actionsDiv.appendChild(killBtn);
