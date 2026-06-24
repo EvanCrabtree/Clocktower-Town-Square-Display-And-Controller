@@ -90,6 +90,22 @@ const server = http.createServer((req, res) => {
     return;
   }
   
+  // API: list sound files in a category so the display can pick one at random
+  // e.g. /api/sounds/morning-sounds -> ["morning-sounds/foo.mp3", ...]
+  const soundMatch = pathname.match(/^\/api\/sounds\/([a-z0-9-]+-sounds)$/);
+  if (soundMatch) {
+    const dir = path.join(__dirname, 'assets', soundMatch[1]);
+    fs.readdir(dir, (err, files) => {
+      res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+      if (err) { res.end('[]'); return; }
+      const audio = files
+        .filter(f => /\.(mp3|ogg|wav|m4a)$/i.test(f))
+        .map(f => `assets/${soundMatch[1]}/${f}`);
+      res.end(JSON.stringify(audio));
+    });
+    return;
+  }
+
   // Construct full file path
   const filePath = path.join(__dirname, pathname);
   console.log(`Looking for file: ${filePath}`);
@@ -98,7 +114,10 @@ const server = http.createServer((req, res) => {
   const displayFile = `display_${IP.replace(/\./g, '_')}.html`;
   const controllerFile = `controller_${IP.replace(/\./g, '_')}.html`;
   
-  if (fs.existsSync(filePath) && (pathname.includes(displayFile) || pathname.includes(controllerFile) || pathname === '/favicon.ico')) {
+  // Allow audio assets under /assets/morning-sounds and /assets/night-sounds
+  const isSoundAsset = /^\/assets\/[a-z0-9-]+-sounds\/[^/]+\.(mp3|ogg|wav|m4a)$/i.test(pathname);
+
+  if (fs.existsSync(filePath) && (pathname.includes(displayFile) || pathname.includes(controllerFile) || pathname === '/favicon.ico' || isSoundAsset)) {
     console.log(`Serving file: ${pathname}`);
     // Get file extension
     const ext = path.parse(filePath).ext;

@@ -601,6 +601,25 @@
     color: #ffffff;
   }
 
+  .audio-controls {
+    margin-top: 25px;
+    padding-top: 20px;
+    border-top: 1px solid rgba(139, 69, 19, 0.3);
+    text-align: center;
+  }
+
+  .audio-controls .section-title {
+    font-size: 1.3em;
+    margin-bottom: 15px;
+  }
+
+  .audio-buttons {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
   .on-block-controls {
     margin-top: 15px;
     padding-top: 15px;
@@ -679,6 +698,16 @@
       </div>
     </section>
 
+    <section class="audio-controls">
+      <h2 class="section-title">🎵 Sound</h2>
+      <div class="audio-buttons">
+        <button class="btn" id="audioChangeBtn">🔀 Change</button>
+        <button class="btn" id="audioRestartBtn">⏮ Restart</button>
+        <button class="btn" id="audioFadeBtn">🔉 Fade Out</button>
+        <button class="btn danger" id="audioStopBtn">⏹ Stop</button>
+      </div>
+    </section>
+
   </section>
 
   <section class="players-section">
@@ -724,7 +753,7 @@ const bulkImportBtn = document.getElementById("bulkImportBtn");
 const clearBulkBtn = document.getElementById("clearBulkBtn");
 
 let players = [];
-let state = { players: [], onBlockPlayer: null, onBlockVotes: 0, nominatedPlayer: null, nominatorPlayer: null };
+let state = { players: [], onBlockPlayer: null, onBlockVotes: 0, nominatedPlayer: null, nominatorPlayer: null, audioCmd: null };
 let previousPhase = null;
 let selectedPlayer = null;
 let nominatingPlayer = null; // index of player whose nominate panel is open
@@ -792,12 +821,21 @@ function sendUpdate() {
     onBlockPlayer: state.onBlockPlayer,
     onBlockVotes: state.onBlockVotes,
     nominatedPlayer: state.nominatedPlayer,
-    nominatorPlayer: state.nominatorPlayer
+    nominatorPlayer: state.nominatorPlayer,
+    audioCmd: state.audioCmd
   };
   if (ws.readyState === WebSocket.OPEN) {
     ws.send(JSON.stringify(data));
   }
   renderPlayers();
+}
+
+// Send an audio command to the display. Nonce makes each press distinct so the
+// display fires it exactly once (state is rebroadcast on every update).
+let audioNonce = 0;
+function sendAudioCommand(action) {
+  state.audioCmd = { action, nonce: ++audioNonce };
+  sendUpdate();
 }
 
 // Clear all day-scoped state: block, nomination, and per-player nominate flags
@@ -1351,6 +1389,11 @@ nextPhaseBtn.onclick = nextPhase;
 
 phaseSelect.addEventListener("change", sendUpdate);
 phaseNumber.addEventListener("input", sendUpdate);
+
+document.getElementById("audioChangeBtn").onclick = () => sendAudioCommand('change');
+document.getElementById("audioRestartBtn").onclick = () => sendAudioCommand('restart');
+document.getElementById("audioFadeBtn").onclick = () => sendAudioCommand('fade');
+document.getElementById("audioStopBtn").onclick = () => sendAudioCommand('stop');
 
 renderPlayers();
 </script>

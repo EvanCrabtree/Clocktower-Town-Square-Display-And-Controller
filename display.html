@@ -285,49 +285,90 @@
     filter: grayscale(0.7) brightness(0.6);
   }
 
-  /* Death / revive transitions — applied once when state changes */
+  /* Death / revive transitions — applied once when state changes.
+     Keep translate(-50%, -50%) in every frame so the card stays centered on its point. */
   @keyframes death-fall {
-    0%   { transform: scale(1) rotate(0); filter: none; }
-    40%  { transform: scale(1.08) rotate(-2deg); }
-    100% { transform: scale(0.96) rotate(0); filter: grayscale(0.7) brightness(0.7); }
+    0%   { transform: translate(-50%, -50%) scale(1) rotate(0); filter: none; }
+    40%  { transform: translate(-50%, -50%) scale(1.08) rotate(-2deg); }
+    100% { transform: translate(-50%, -50%) scale(0.96) rotate(0); filter: grayscale(0.7) brightness(0.7); }
   }
 
   @keyframes revive-rise {
-    0%   { transform: scale(0.9); filter: grayscale(0.7) brightness(0.6); }
-    50%  { transform: scale(1.1); filter: brightness(1.4); }
-    100% { transform: scale(1); filter: none; }
+    0%   { transform: translate(-50%, -50%) scale(0.9); filter: grayscale(0.7) brightness(0.6); }
+    50%  { transform: translate(-50%, -50%) scale(1.1); filter: brightness(1.4); }
+    100% { transform: translate(-50%, -50%) scale(1); filter: none; }
   }
 
   .player-card.just-died { animation: death-fall 0.9s ease-out; }
   .player-card.just-revived { animation: revive-rise 0.8s ease-out; }
 
-  /* Day/night transition sweep overlay */
+  /* Day/night transition: a sun that rises (sunrise) or sets (sunset) over a sky wash */
   #phaseSweep {
     position: fixed;
-    top: 0;
-    left: -120%;
+    inset: 0;
     width: 100%;
     height: 100%;
     pointer-events: none;
     z-index: 50;
     opacity: 0;
+    overflow: hidden;
   }
 
-  #phaseSweep.sweep-day {
-    background: linear-gradient(120deg, transparent 0%, rgba(255, 223, 120, 0.55) 45%, rgba(255, 250, 235, 0.75) 50%, rgba(255, 223, 120, 0.55) 55%, transparent 100%);
-    animation: sweep-across 1s ease-in-out;
+  #phaseSweep.active { opacity: 1; }
+
+  /* Sky wash gradient behind the sun */
+  #phaseSweep .sky {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
   }
 
-  #phaseSweep.sweep-night {
-    background: linear-gradient(120deg, transparent 0%, rgba(40, 40, 90, 0.55) 45%, rgba(10, 10, 25, 0.8) 50%, rgba(40, 40, 90, 0.55) 55%, transparent 100%);
-    animation: sweep-across 1s ease-in-out;
+  #phaseSweep.sunrise .sky {
+    background: linear-gradient(to top, rgba(255, 170, 60, 0.55) 0%, rgba(255, 120, 80, 0.4) 30%, rgba(120, 140, 200, 0.25) 70%, transparent 100%);
+    animation: sky-fade 10s ease-in-out;
   }
 
-  @keyframes sweep-across {
-    0%   { left: -120%; opacity: 0; }
-    20%  { opacity: 1; }
-    80%  { opacity: 1; }
-    100% { left: 120%; opacity: 0; }
+  #phaseSweep.sunset .sky {
+    background: linear-gradient(to top, rgba(40, 30, 80, 0.6) 0%, rgba(180, 70, 60, 0.45) 35%, rgba(255, 140, 70, 0.3) 60%, transparent 100%);
+    animation: sky-fade 10s ease-in-out;
+  }
+
+  /* The sun disc */
+  #phaseSweep .sun {
+    position: absolute;
+    left: 50%;
+    width: clamp(120px, 14vw, 220px);
+    height: clamp(120px, 14vw, 220px);
+    margin-left: calc(clamp(120px, 14vw, 220px) / -2);
+    border-radius: 50%;
+    background: radial-gradient(circle at 50% 45%, #fff6d5 0%, #ffd24d 40%, #ff9a3c 70%, rgba(255, 154, 60, 0) 100%);
+    box-shadow: 0 0 80px 30px rgba(255, 200, 90, 0.6);
+  }
+
+  #phaseSweep.sunrise .sun { animation: sun-rise 10s ease-in-out; }
+  #phaseSweep.sunset .sun  { animation: sun-set 10s ease-in-out; }
+
+  @keyframes sky-fade {
+    0%   { opacity: 0; }
+    25%  { opacity: 1; }
+    70%  { opacity: 1; }
+    100% { opacity: 0; }
+  }
+
+  /* Rise from below the horizon up past center, then continue up and out */
+  @keyframes sun-rise {
+    0%   { top: 100%; opacity: 0; }
+    25%  { opacity: 1; }
+    55%  { top: 42%; opacity: 1; }
+    100% { top: -30%; opacity: 0; }
+  }
+
+  /* Set from above center down below the horizon */
+  @keyframes sun-set {
+    0%   { top: -30%; opacity: 0; }
+    25%  { top: 42%; opacity: 1; }
+    70%  { opacity: 1; }
+    100% { top: 110%; opacity: 0; }
   }
 
   .player-name {
@@ -684,7 +725,7 @@
 </style>
 </head>
 <body>
-<div id="phaseSweep"></div>
+<div id="phaseSweep"><div class="sky"></div><div class="sun"></div></div>
 <svg id="clockHands"></svg>
 <div id="phaseDisplay" class="connecting">Connecting...</div>
 <div id="finalDayWarning">⚠️ Final Day ⚠️</div>
@@ -783,6 +824,7 @@ let nominatorPlayer = null;
 let prevAlive = {};
 let prevPhaseKey = null;
 let firstRender = true;
+let prevNominationKey = null; // "nominator>nominee" — used to animate only on new nominations
 
 // Deterministic avatar color from a name
 function avatarColor(name) {
@@ -797,14 +839,117 @@ function initials(name) {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
-// Fire the day/night sweep overlay when the phase changes
+// Fire the sunrise (-> day) or sunset (-> night) overlay when the phase changes
+let phaseSweepTimer = null;
 function runPhaseSweep(phaseKey) {
   const sweep = document.getElementById('phaseSweep');
   if (!sweep) return;
   sweep.className = '';
   // Force reflow so the animation restarts even on rapid toggles
   void sweep.offsetWidth;
-  sweep.classList.add(phaseKey === 'day' ? 'sweep-day' : 'sweep-night');
+  sweep.classList.add('active', phaseKey === 'day' ? 'sunrise' : 'sunset');
+  if (phaseSweepTimer) clearTimeout(phaseSweepTimer);
+  phaseSweepTimer = setTimeout(() => { sweep.className = ''; }, 10000);
+
+  // Layer a one-shot SFX (rooster at dawn, owl at dusk) over the transition,
+  // then the looping background music.
+  if (phaseKey === 'day') {
+    playSfx('rooster-sounds');
+    playRandomSound('morning-sounds');
+  } else {
+    playSfx('owl-sounds');
+  }
+}
+
+// Play a random one-shot sound effect layered on top of current audio (does not
+// touch the background music track). Fire-and-forget.
+function playSfx(category) {
+  fetch(`/api/sounds/${category}`)
+    .then(r => r.ok ? r.json() : [])
+    .then(files => {
+      if (!files || files.length === 0) return;
+      const pick = files[Math.floor(Math.random() * files.length)];
+      const sfx = new Audio('/' + pick);
+      sfx.volume = 0.9;
+      sfx.play().catch(e => console.warn('SFX play blocked:', e));
+    })
+    .catch(e => console.warn('Could not load SFX:', e));
+}
+
+// --- Audio playback, remotely controllable from the controller page ---
+let currentAudio = null;       // the <audio> element currently loaded
+let currentCategory = null;    // category it was picked from (for "change")
+let currentTrack = null;       // path of the loaded track (to avoid repeats on change)
+let fadeTimer = null;
+const AUDIO_VOLUME = 0.7;
+
+// Pick and play a random audio file from an assets sound category.
+// `avoid` is an optional track path to skip (so "change" gives a different one).
+function playRandomSound(category, avoid) {
+  return fetch(`/api/sounds/${category}`)
+    .then(r => r.ok ? r.json() : [])
+    .then(files => {
+      if (!files || files.length === 0) return;
+      let pool = files;
+      if (avoid && files.length > 1) pool = files.filter(f => f !== avoid);
+      const pick = pool[Math.floor(Math.random() * pool.length)];
+      stopSound();
+      currentCategory = category;
+      currentTrack = pick;
+      currentAudio = new Audio('/' + pick);
+      currentAudio.volume = AUDIO_VOLUME;
+      currentAudio.play().catch(e => console.warn('Audio play blocked:', e));
+    })
+    .catch(e => console.warn('Could not load sounds:', e));
+}
+
+function stopSound() {
+  if (fadeTimer) { clearInterval(fadeTimer); fadeTimer = null; }
+  if (currentAudio) {
+    currentAudio.pause();
+    currentAudio.currentTime = 0;
+    currentAudio = null;
+  }
+}
+
+function restartSound() {
+  if (fadeTimer) { clearInterval(fadeTimer); fadeTimer = null; }
+  if (currentAudio) {
+    currentAudio.currentTime = 0;
+    currentAudio.volume = AUDIO_VOLUME;
+    currentAudio.play().catch(e => console.warn('Audio play blocked:', e));
+  }
+}
+
+// Fade volume to zero over `ms`, then stop
+function fadeOutSound(ms = 4000) {
+  if (!currentAudio) return;
+  if (fadeTimer) clearInterval(fadeTimer);
+  const steps = 40;
+  const stepMs = Math.max(20, ms / steps);
+  const startVol = currentAudio.volume;
+  let i = 0;
+  fadeTimer = setInterval(() => {
+    i++;
+    if (!currentAudio) { clearInterval(fadeTimer); fadeTimer = null; return; }
+    currentAudio.volume = Math.max(0, startVol * (1 - i / steps));
+    if (i >= steps) { clearInterval(fadeTimer); fadeTimer = null; stopSound(); }
+  }, stepMs);
+}
+
+function changeSound() {
+  const cat = currentCategory || 'morning-sounds';
+  playRandomSound(cat, currentTrack);
+}
+
+// Dispatch an audio command sent from the controller
+function handleAudioCommand(cmd) {
+  switch (cmd) {
+    case 'fade':    fadeOutSound(); break;
+    case 'restart': restartSound(); break;
+    case 'stop':    stopSound(); break;
+    case 'change':  changeSound(); break;
+  }
 }
 
 ws.onopen = () => {
@@ -824,8 +969,15 @@ ws.onmessage = (msg) => {
   nominatedPlayer = data.nominatedPlayer !== undefined ? data.nominatedPlayer : nominatedPlayer;
   nominatorPlayer = data.nominatorPlayer !== undefined ? data.nominatorPlayer : nominatorPlayer;
 
+  // Audio command from controller — nonce-gated so each press fires once
+  if (data.audioCmd && data.audioCmd.nonce !== undefined && data.audioCmd.nonce !== lastAudioNonce) {
+    lastAudioNonce = data.audioCmd.nonce;
+    handleAudioCommand(data.audioCmd.action);
+  }
+
   render();
 };
+let lastAudioNonce = null;
 
 function render() {
   phaseDisplay.textContent = `${phase} ${phaseNumber}`;
@@ -1024,12 +1176,18 @@ function render() {
   players.forEach(p => { prevAlive[p.name] = p.alive; });
   firstRender = false;
 
-  drawClockHands(playerPositions, centerX, centerY);
+  // Animate the hands spinning in only when the nomination pair is newly set
+  const nominationKey = (phaseKey === 'day' && nominatorPlayer !== null && nominatedPlayer !== null)
+    ? `${nominatorPlayer}>${nominatedPlayer}` : null;
+  const animateHands = nominationKey !== null && nominationKey !== prevNominationKey;
+  prevNominationKey = nominationKey;
+
+  drawClockHands(playerPositions, centerX, centerY, animateHands);
 }
 
 // Draw a clock connecting the nominator (hour hand) to the nominee (minute hand).
 // Hour hand is short and thick; minute hand is long and thin — classic clock convention.
-function drawClockHands(positions, cx, cy) {
+function drawClockHands(positions, cx, cy, animate) {
   clockHands.innerHTML = "";
   const isDay = phase.toLowerCase() === 'day';
   if (!isDay || nominatorPlayer === null || nominatedPlayer === null) return;
@@ -1047,64 +1205,96 @@ function drawClockHands(positions, cx, cy) {
   const hourColor = isSelf ? "#ffd700" : "#dc143c";
   const minuteColor = isSelf ? "#ffd700" : "#00bfff";
 
-  // Arrowhead markers, colored to match each hand
-  const defs = document.createElementNS(ns, "defs");
-  const makeArrow = (id, color, size) => {
-    const marker = document.createElementNS(ns, "marker");
-    marker.setAttribute("id", id);
-    marker.setAttribute("viewBox", "0 0 10 10");
-    marker.setAttribute("refX", "8");
-    marker.setAttribute("refY", "5");
-    marker.setAttribute("markerWidth", size);
-    marker.setAttribute("markerHeight", size);
-    marker.setAttribute("orient", "auto-start-reverse");
-    const arrow = document.createElementNS(ns, "path");
-    arrow.setAttribute("d", "M0,0 L10,5 L0,10 z");
-    arrow.setAttribute("fill", color);
-    marker.appendChild(arrow);
-    defs.appendChild(marker);
-  };
-  const markerId = "neeArrow";   // nominee (minute) hand
-  const nomMarkerId = "nomArrow"; // nominator (hour) hand
-  makeArrow(markerId, minuteColor, "5");
-  makeArrow(nomMarkerId, hourColor, "4");
-  clockHands.appendChild(defs);
+  // Hour hand -> nominator (short, ornate). Minute hand -> nominee (long, ornate).
+  const hour = handShape(ns, cx, cy, nom.x, nom.y, 0.62, hourColor, 9, 22);
+  const minute = handShape(ns, cx, cy, nee.x, nee.y, 0.82, minuteColor, 7, 30);
 
-  // Central hub
-  const hub = document.createElementNS(ns, "circle");
-  hub.setAttribute("cx", cx);
-  hub.setAttribute("cy", cy);
-  hub.setAttribute("r", 10);
-  hub.setAttribute("fill", "#d4af37");
-  hub.setAttribute("stroke", "rgba(0,0,0,0.6)");
-  hub.setAttribute("stroke-width", "2");
+  if (animate) {
+    // Spin each hand in around the hub. Different sweeps/durations -> parallax.
+    // Minute hand spins faster & further (like a real clock), hour settles slower.
+    spinHand(ns, hour, cx, cy, 1.5, 2.6);
+    spinHand(ns, minute, cx, cy, 3.5, 3.4);
+  }
 
-  // Hour hand -> nominator (short, thin) with a small arrowhead pointing at them.
-  const hour = handLine(ns, cx, cy, nom.x, nom.y, 0.62, hourColor, 3);
-  hour.setAttribute("marker-end", `url(#${nomMarkerId})`);
-  // Minute hand -> nominee (long, thin) with arrowhead pointing at their box.
-  const minute = handLine(ns, cx, cy, nee.x, nee.y, 0.82, minuteColor, 5);
-  minute.setAttribute("marker-end", `url(#${markerId})`);
+  // Ornate central hub: gold ring + dark cap
+  const hubRing = document.createElementNS(ns, "circle");
+  hubRing.setAttribute("cx", cx);
+  hubRing.setAttribute("cy", cy);
+  hubRing.setAttribute("r", 11);
+  hubRing.setAttribute("fill", "#d4af37");
+  hubRing.setAttribute("stroke", "rgba(0,0,0,0.6)");
+  hubRing.setAttribute("stroke-width", "2");
+  const hubCap = document.createElementNS(ns, "circle");
+  hubCap.setAttribute("cx", cx);
+  hubCap.setAttribute("cy", cy);
+  hubCap.setAttribute("r", 4.5);
+  hubCap.setAttribute("fill", "#2b2b2b");
 
   clockHands.appendChild(hour);
   clockHands.appendChild(minute);
-  clockHands.appendChild(hub);
+  clockHands.appendChild(hubRing);
+  clockHands.appendChild(hubCap);
 }
 
-// Build a line from center toward a target, scaled by `reach` (0-1) of the full distance.
-function handLine(ns, cx, cy, tx, ty, reach, color, width) {
-  const ex = cx + (tx - cx) * reach;
-  const ey = cy + (ty - cy) * reach;
-  const line = document.createElementNS(ns, "line");
-  line.setAttribute("x1", cx);
-  line.setAttribute("y1", cy);
-  line.setAttribute("x2", ex);
-  line.setAttribute("y2", ey);
-  line.setAttribute("stroke", color);
-  line.setAttribute("stroke-width", width);
-  line.setAttribute("stroke-linecap", "round");
-  line.setAttribute("filter", "drop-shadow(0 0 4px rgba(0,0,0,0.7))");
-  return line;
+// Attach a one-shot spin-into-place rotation about (cx,cy).
+// `turns` full revolutions, `dur` seconds, easing out so it decelerates onto the target.
+function spinHand(ns, el, cx, cy, turns, dur) {
+  const from = -360 * turns;
+  const anim = document.createElementNS(ns, "animateTransform");
+  anim.setAttribute("attributeName", "transform");
+  anim.setAttribute("type", "rotate");
+  anim.setAttribute("from", `${from} ${cx} ${cy}`);
+  anim.setAttribute("to", `0 ${cx} ${cy}`);
+  anim.setAttribute("dur", `${dur}s`);
+  anim.setAttribute("repeatCount", "1");
+  anim.setAttribute("fill", "freeze");
+  // Decelerate into final position
+  anim.setAttribute("calcMode", "spline");
+  anim.setAttribute("keyTimes", "0;1");
+  anim.setAttribute("keySplines", "0.15 0.85 0.3 1");
+  // Start on demand (a freshly inserted SMIL element with begin=0s would treat
+  // time 0 as already past and snap to the end).
+  anim.setAttribute("begin", "indefinite");
+  el.appendChild(anim);
+  // beginElement only works once the node is in the live document
+  requestAnimationFrame(() => { try { anim.beginElement(); } catch (e) {} });
+}
+
+// Build an ornate, tapered clock hand pointing from the hub toward a target.
+// Classic leaf/spade silhouette: counterweight tail, slim neck, diamond near the
+// tip, then a fine point. `reach` (0-1) of full distance, `w` base width, `tail` length.
+function handShape(ns, cx, cy, tx, ty, reach, color, w, tail) {
+  const dx = tx - cx, dy = ty - cy;
+  const dist = Math.hypot(dx, dy) || 1;
+  const ux = dx / dist, uy = dy / dist;       // unit vector toward target
+  const nx = -uy, ny = ux;                     // perpendicular
+  const L = dist * reach;                      // hand length
+
+  // Point helper: a along the hand axis, b perpendicular, from the hub
+  const P = (a, b) => `${(cx + ux * a + nx * b).toFixed(1)},${(cy + uy * a + ny * b).toFixed(1)}`;
+
+  const wn = w * 0.45;            // neck half-width
+  const wd = w * 0.85;            // diamond half-width
+  const d = [
+    `M ${P(-tail, 0)}`,                 // counterweight tip (behind hub)
+    `L ${P(-tail * 0.4, w * 0.6)}`,     // tail shoulder (left)
+    `L ${P(L * 0.12, wn)}`,             // neck (left)
+    `L ${P(L * 0.66, wd)}`,             // diamond widest (left)
+    `L ${P(L, 0)}`,                     // fine point at tip
+    `L ${P(L * 0.66, -wd)}`,            // diamond widest (right)
+    `L ${P(L * 0.12, -wn)}`,            // neck (right)
+    `L ${P(-tail * 0.4, -w * 0.6)}`,    // tail shoulder (right)
+    'Z'
+  ].join(' ');
+
+  const path = document.createElementNS(ns, "path");
+  path.setAttribute("d", d);
+  path.setAttribute("fill", color);
+  path.setAttribute("stroke", "rgba(0,0,0,0.55)");
+  path.setAttribute("stroke-width", "1.2");
+  path.setAttribute("stroke-linejoin", "round");
+  path.setAttribute("filter", "drop-shadow(0 2px 5px rgba(0,0,0,0.6))");
+  return path;
 }
 
 // Toggle a legend row's visibility by id
