@@ -1,7 +1,7 @@
 const WebSocket = require('ws');
 const wss = new WebSocket.Server({ port: 8080 });
 
-let state = { players: [], phase: 'Night', phaseNumber: 1, onBlockPlayer: null, onBlockVotes: 0, nominatedPlayer: null, nominatorPlayer: null };
+let state = { players: [], phase: 'Night', phaseNumber: 1, onBlockPlayer: null, onBlockVotes: 0, nominatedPlayer: null, nominatorPlayer: null, nowPlaying: null };
 
 wss.on('connection', ws => {
   // Send current state to new client
@@ -9,7 +9,9 @@ wss.on('connection', ws => {
 
   // Receive updates from controller
   ws.on('message', message => {
-    state = JSON.parse(message);
+    // Merge incoming partial state so either client (controller or display) can
+    // update its own fields without clobbering the other's.
+    state = Object.assign(state, JSON.parse(message));
     // Broadcast updated state to all clients
     wss.clients.forEach(client => {
       if (client.readyState === WebSocket.OPEN) {

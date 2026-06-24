@@ -348,6 +348,13 @@
   #phaseSweep.sunrise .sun { animation: sun-rise 10s ease-in-out; }
   #phaseSweep.sunset .sun  { animation: sun-set 10s ease-in-out; }
 
+  /* Dimmer, dusky sun when setting */
+  #phaseSweep.sunset .sun {
+    background: radial-gradient(circle at 50% 45%, #ffd9a0 0%, #e8893c 40%, #b85a2c 70%, rgba(184, 90, 44, 0) 100%);
+    box-shadow: 0 0 50px 16px rgba(200, 110, 60, 0.35);
+    opacity: 0.7;
+  }
+
   @keyframes sky-fade {
     0%   { opacity: 0; }
     25%  { opacity: 1; }
@@ -854,24 +861,27 @@ function runPhaseSweep(phaseKey) {
   // Layer a one-shot SFX (rooster at dawn, owl at dusk) over the transition,
   // then the looping background music.
   if (phaseKey === 'day') {
-    playSfx('rooster-sounds');
+    playSfx('rooster-sounds', 0.4, 1500);
     playRandomSound('morning-sounds');
   } else {
-    playSfx('owl-sounds');
+    playSfx('owl-sounds', 0.4, 1500);
+    playRandomSound('night-sounds');
   }
 }
 
 // Play a random one-shot sound effect layered on top of current audio (does not
 // touch the background music track). Fire-and-forget.
-function playSfx(category) {
+// `volume` (0-1) and `delay` (ms before playing) are optional.
+function playSfx(category, volume = 0.9, delay = 0) {
   fetch(`/api/sounds/${category}`)
     .then(r => r.ok ? r.json() : [])
     .then(files => {
       if (!files || files.length === 0) return;
       const pick = files[Math.floor(Math.random() * files.length)];
       const sfx = new Audio('/' + pick);
-      sfx.volume = 0.9;
-      sfx.play().catch(e => console.warn('SFX play blocked:', e));
+      sfx.volume = volume;
+      const start = () => sfx.play().catch(e => console.warn('SFX play blocked:', e));
+      if (delay > 0) setTimeout(start, delay); else start();
     })
     .catch(e => console.warn('Could not load SFX:', e));
 }
@@ -899,8 +909,23 @@ function playRandomSound(category, avoid) {
       currentAudio = new Audio('/' + pick);
       currentAudio.volume = AUDIO_VOLUME;
       currentAudio.play().catch(e => console.warn('Audio play blocked:', e));
+      reportNowPlaying(pick);
     })
     .catch(e => console.warn('Could not load sounds:', e));
+}
+
+// Pretty track name from a file path: "assets/night-sounds/Gymnopedie.mp3" -> "Gymnopedie"
+function trackLabel(path) {
+  if (!path) return null;
+  return path.split('/').pop().replace(/\.[^.]+$/, '');
+}
+
+// Tell the controller what's playing (partial state; server merges it).
+function reportNowPlaying(path) {
+  const label = trackLabel(path);
+  if (ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({ nowPlaying: label }));
+  }
 }
 
 function stopSound() {
@@ -910,6 +935,7 @@ function stopSound() {
     currentAudio.currentTime = 0;
     currentAudio = null;
   }
+  reportNowPlaying(null);
 }
 
 function restartSound() {

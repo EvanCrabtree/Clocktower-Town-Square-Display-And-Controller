@@ -613,6 +613,18 @@
     margin-bottom: 15px;
   }
 
+  .now-playing {
+    margin-bottom: 15px;
+    font-size: 0.95em;
+    color: #d4b483;
+    font-style: italic;
+  }
+
+  .now-playing.playing::before {
+    content: "🎶 ";
+    font-style: normal;
+  }
+
   .audio-buttons {
     display: flex;
     gap: 12px;
@@ -700,6 +712,7 @@
 
     <section class="audio-controls">
       <h2 class="section-title">🎵 Sound</h2>
+      <div id="nowPlaying" class="now-playing">Nothing playing</div>
       <div class="audio-buttons">
         <button class="btn" id="audioChangeBtn">🔀 Change</button>
         <button class="btn" id="audioRestartBtn">⏮ Restart</button>
@@ -753,7 +766,7 @@ const bulkImportBtn = document.getElementById("bulkImportBtn");
 const clearBulkBtn = document.getElementById("clearBulkBtn");
 
 let players = [];
-let state = { players: [], onBlockPlayer: null, onBlockVotes: 0, nominatedPlayer: null, nominatorPlayer: null, audioCmd: null };
+let state = { players: [], onBlockPlayer: null, onBlockVotes: 0, nominatedPlayer: null, nominatorPlayer: null, audioCmd: null, nowPlaying: null };
 let previousPhase = null;
 let selectedPlayer = null;
 let nominatingPlayer = null; // index of player whose nominate panel is open
@@ -809,9 +822,23 @@ ws.onmessage = (msg) => {
   if (data.onBlockVotes !== undefined) state.onBlockVotes = data.onBlockVotes;
   if (data.nominatedPlayer !== undefined) state.nominatedPlayer = data.nominatedPlayer;
   if (data.nominatorPlayer !== undefined) state.nominatorPlayer = data.nominatorPlayer;
-  
+  if (data.nowPlaying !== undefined) { state.nowPlaying = data.nowPlaying; renderNowPlaying(); }
+
   renderPlayers();
 };
+
+// Show what the display is currently playing
+function renderNowPlaying() {
+  const el = document.getElementById('nowPlaying');
+  if (!el) return;
+  if (state.nowPlaying) {
+    el.textContent = state.nowPlaying;
+    el.classList.add('playing');
+  } else {
+    el.textContent = 'Nothing playing';
+    el.classList.remove('playing');
+  }
+}
 
 function sendUpdate() {
   const data = {

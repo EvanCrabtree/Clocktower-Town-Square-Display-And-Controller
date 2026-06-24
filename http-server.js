@@ -28,7 +28,7 @@ const mimeTypes = {
 const server = http.createServer((req, res) => {
   // Parse URL
   const parsedUrl = new URL(req.url, `http://${IP}:${PORT}`);
-  let pathname = parsedUrl.pathname;
+  let pathname = decodeURIComponent(parsedUrl.pathname);
   
   console.log(`Request received: ${req.method} ${pathname}`);
   
