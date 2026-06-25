@@ -302,6 +302,93 @@
   .player-card.just-died { animation: death-fall 0.9s ease-out; }
   .player-card.just-revived { animation: revive-rise 0.8s ease-out; }
 
+  /* Execution FX: a copy of the living card collapses to the floor, shatters,
+     then a ghost rises back to the seat (lerp). Lives in its own overlay so the
+     normal render (which clears #playersContainer) never interrupts it.
+     --fall = px from the seat down to the bottom of the screen. */
+  #execFxLayer {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 60;
+    overflow: hidden;
+  }
+  .exec-fx { position: absolute; }
+  .exec-fx > * {
+    position: absolute;
+    left: 0;
+    top: 0;
+    transform: translate(-50%, -50%);
+  }
+
+  .exec-body {
+    width: clamp(120px, 10vw, 160px);
+    padding: clamp(4px, 1vw, 6px);
+    border-radius: 12px;
+    background: rgba(20, 20, 30, 0.95);
+    border: 2px solid rgba(139, 69, 19, 0.5);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    text-align: center;
+    color: #fff;
+    animation: exec-collapse 0.75s cubic-bezier(0.55, 0.06, 0.68, 0.19) forwards;
+  }
+  .exec-body .exec-avatar {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    margin: 0 auto 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    color: #fff;
+  }
+
+  .exec-shard {
+    width: 14px;
+    height: 14px;
+    background: linear-gradient(135deg, #c9d4e0, #7c8896);
+    border-radius: 2px;
+    opacity: 0;
+    animation: exec-shard-burst 0.7s ease-out forwards;
+    animation-delay: 0.6s;
+  }
+
+  .exec-ghost {
+    font-size: 2.4em;
+    text-shadow: 0 0 18px rgba(180, 200, 255, 0.8);
+    opacity: 0;
+    white-space: nowrap;
+    animation: exec-ghost-rise 1.6s ease-out forwards;
+    animation-delay: 0.95s;
+  }
+  .exec-ghost .exec-ghost-name {
+    display: block;
+    font-size: 0.42em;
+    color: #cdd9ff;
+    margin-top: 2px;
+  }
+
+  @keyframes exec-collapse {
+    0%   { transform: translate(-50%, -50%) translateY(0) scaleY(1) scaleX(1); opacity: 1; }
+    65%  { transform: translate(-50%, -50%) translateY(var(--fall)) scaleY(0.55) scaleX(1.25); opacity: 1; }
+    82%  { transform: translate(-50%, -50%) translateY(var(--fall)) scaleY(0.12) scaleX(1.55); opacity: 1; }
+    100% { transform: translate(-50%, -50%) translateY(var(--fall)) scaleY(0.08) scaleX(1.6); opacity: 0; }
+  }
+
+  @keyframes exec-shard-burst {
+    0%   { transform: translate(-50%, -50%) translateY(var(--fall)) translate(0, 0) rotate(0deg); opacity: 0; }
+    12%  { opacity: 1; }
+    100% { transform: translate(-50%, -50%) translateY(var(--fall)) translate(var(--dx), var(--dy)) rotate(var(--r)); opacity: 0; }
+  }
+
+  @keyframes exec-ghost-rise {
+    0%   { transform: translate(-50%, -50%) translateY(var(--fall)) scale(0.8); opacity: 0; }
+    22%  { opacity: 0.9; }
+    78%  { transform: translate(-50%, -50%) translateY(0) scale(1); opacity: 0.9; }
+    100% { transform: translate(-50%, -50%) translateY(-10px) scale(1.06); opacity: 0; }
+  }
+
   /* Day/night transition: a sun that rises (sunrise) or sets (sunset) over a sky wash */
   #phaseSweep {
     position: fixed;
@@ -805,9 +892,11 @@
   </div>
 </div>
 <div id="playersContainer"></div>
+<div id="execFxLayer"></div>
 
 <script>
 const playersContainer = document.getElementById("playersContainer");
+const execFxLayer = document.getElementById("execFxLayer");
 const phaseDisplay = document.getElementById("phaseDisplay");
 const votesToExecuteDisplay = document.getElementById("votesToExecuteDisplay");
 const votesToExecuteText = document.getElementById("votesToExecuteText");
@@ -884,6 +973,58 @@ function playSfx(category, volume = 0.9, delay = 0) {
       if (delay > 0) setTimeout(start, delay); else start();
     })
     .catch(e => console.warn('Could not load SFX:', e));
+}
+
+// Execution FX: drop a card copy to the floor, shatter it into shards, then
+// raise a ghost back to the seat. (x, y) is the seat center in #playersContainer
+// space; since that container fills the viewport it maps 1:1 to the fixed layer.
+function spawnExecutionFx(x, y, name) {
+  if (!execFxLayer) return;
+  const rect = playersContainer.getBoundingClientRect();
+  const px = rect.left + x;
+  const py = rect.top + y;
+  const fall = Math.max(0, window.innerHeight - py - 30); // seat -> near floor
+
+  const fx = document.createElement('div');
+  fx.className = 'exec-fx';
+  fx.style.left = px + 'px';
+  fx.style.top = py + 'px';
+  fx.style.setProperty('--fall', fall + 'px');
+
+  // 1) The collapsing body (mini copy of the card).
+  const body = document.createElement('div');
+  body.className = 'exec-body';
+  const av = document.createElement('div');
+  av.className = 'exec-avatar';
+  av.textContent = initials(name);
+  av.style.background = avatarColor(name);
+  const nm = document.createElement('div');
+  nm.textContent = name;
+  body.appendChild(av);
+  body.appendChild(nm);
+  fx.appendChild(body);
+
+  // 2) Shards bursting from the floor.
+  const SHARDS = 12;
+  for (let s = 0; s < SHARDS; s++) {
+    const shard = document.createElement('div');
+    shard.className = 'exec-shard';
+    const ang = (Math.PI * 2 * s) / SHARDS + (s % 2 ? 0.3 : -0.2);
+    const dist = 60 + (s % 4) * 25;
+    shard.style.setProperty('--dx', Math.cos(ang) * dist + 'px');
+    shard.style.setProperty('--dy', (Math.sin(ang) * dist - 40) + 'px');
+    shard.style.setProperty('--r', (s * 47) + 'deg');
+    fx.appendChild(shard);
+  }
+
+  // 3) Ghost rising back to the seat.
+  const ghost = document.createElement('div');
+  ghost.className = 'exec-ghost';
+  ghost.innerHTML = '👻<span class="exec-ghost-name">' + name + '</span>';
+  fx.appendChild(ghost);
+
+  execFxLayer.appendChild(fx);
+  setTimeout(() => fx.remove(), 2700); // longest chain: ghost delay 0.95 + 1.6s
 }
 
 // --- Audio playback, remotely controllable from the controller page ---
@@ -1105,6 +1246,11 @@ function render() {
     let transitionClass = '';
     if (!firstRender && prevAlive[p.name] !== undefined && prevAlive[p.name] !== p.alive) {
       transitionClass = p.alive ? 'just-revived' : 'just-died';
+      // Town execution gets the full collapse/shatter/ghost FX + a sound.
+      if (!p.alive && p.deathCause === 'executed') {
+        spawnExecutionFx(x, y, p.name);
+        playSfx('death-sounds', 0.7);
+      }
     }
 
     div.className = `player-card ${!p.alive ? 'dead' : ''} ${p.alive && !isOnBlock ? 'alive' : ''} ${isOnBlock ? 'on-block' : ''} ${isSelfNom ? 'self-nominated' : (isNominated ? 'nominated' : '')} ${!isSelfNom && isNominator ? 'nominator' : ''} ${transitionClass}`;
