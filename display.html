@@ -1536,7 +1536,7 @@ function playSfx(category, volume = 0.9, delay = 0) {
 // Like playSfx, but smoothly ramps playbackRate from 1x to `maxRate` across the
 // entire sound, based on playback position (not wall time, so it stays accurate
 // as the rate climbs). Used for nominations.
-function playSfxRamp(category, volume = 0.9, maxRate = 2.5) {
+function playSfxRamp(category, volume = 0.9, maxRate = 2.5, fadeStartMs = 2000, fadeMs = 600) {
   fetch(`/api/sounds/${category}`)
     .then(r => r.ok ? r.json() : [])
     .then(files => {
@@ -1544,12 +1544,20 @@ function playSfxRamp(category, volume = 0.9, maxRate = 2.5) {
       const pick = files[Math.floor(Math.random() * files.length)];
       const sfx = playSfxFile(pick, volume);
       let rafId = null;
-      const step = () => {
+      const startedAt = performance.now();
+      const step = (now) => {
         if (!liveSfx.has(sfx)) return; // ended/errored — stop ramping
         const dur = sfx.duration;
         if (isFinite(dur) && dur > 0) {
           const t = Math.min(1, sfx.currentTime / dur); // fraction through the file
           sfx.playbackRate = 1 + (maxRate - 1) * t;
+        }
+        // Fade volume out over fadeMs once fadeStartMs of wall time has passed.
+        const elapsed = now - startedAt;
+        if (elapsed >= fadeStartMs) {
+          const f = Math.min(1, (elapsed - fadeStartMs) / fadeMs);
+          sfx.volume = volume * (1 - f);
+          if (f >= 1) { sfx.pause(); liveSfx.delete(sfx); return; }
         }
         rafId = requestAnimationFrame(step);
       };
@@ -2056,10 +2064,7 @@ function render() {
         // length may not be known yet, so resolve it once metadata loads.
         const scheduleFinalizer = () => {
           const delay = Math.max(revealAt, sfxRemainingMs(sfx)) + 1200;
-          // Toll three times, 1.5s apart.
-          for (let t = 0; t < 3; t++) {
-            playSfx('death-finalizer-sounds', 0.7, delay + t * 1500);
-          }
+          playSfx('death-finalizer-sounds', 0.7, delay);
         };
         if (sfx && !isFinite(sfx.duration)) {
           sfx.addEventListener('loadedmetadata', scheduleFinalizer, { once: true });
@@ -2148,7 +2153,7 @@ function render() {
         ripple.className = 'vote-ripple';
         div.appendChild(ripple);
         setTimeout(() => ripple.remove(), 1200);
-        playSfx('death-finalizer-sounds', 0.7);
+        playSfx('on-block-sounds', 0.7);
       }
     } else if (p.alive) {
       const candle = document.createElement("span");
