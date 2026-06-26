@@ -396,6 +396,7 @@
     text-align: center;
     color: #fff;
     box-sizing: border-box;
+    opacity: 0; /* hidden until the burst starts (matters during the fall delay) */
     animation: exec-shatter 1s cubic-bezier(0.33, 0.0, 0.3, 1) forwards;
   }
   /* 5 jagged wedges radiating from the card center. */
@@ -450,74 +451,102 @@
   }
 
   /* --- Variant 4: burnt at the stake --- */
-  /* Card chars GRADUALLY: charring sweeps up from the base via a moving dark
-     gradient mask, brightness/saturation lerp down to pure black, then it
-     crumbles. brightness() stays continuous so the darkening reads as a lerp. */
+  /* The card is consumed from its EDGES INWARD: an inset box-shadow grows its
+     spread from the perimeter toward the center. A black char ring leads, with
+     a glowing orange/red ember front reaching slightly further in (as if the
+     flame edge is eating the card). No flames — just the burn front + ash. */
+  /* The card is eaten by several "unburnt material" lobes (radial-gradient mask
+     layers). Each lobe shrinks toward the card center at a DIFFERENT rate, so
+     the remaining material is an irregular island that collapses inward — not a
+     uniform rectangle. Feathered lobe edges + an ember drop-shadow make the
+     advancing burn front glow. Lobe positions are jittered per-run in JS. */
+  /* Wrapper carries the SVG displacement filter. CSS render order is
+     filter-then-mask, so to tear the MASKED edge (not the clean card) the
+     displacement must live on an ANCESTOR of the masked body: the wrapper
+     paints the already-masked body, then fractal noise rips its front. The
+     wrapper is the .exec-fx>* child, so it owns the centering transform; the
+     body inside sits statically and only curls. */
+  .exec-burn-wrap {
+    filter: url(#paper-burn);
+    will-change: transform;
+    animation: exec-burn-curl 2.1s ease-in forwards;
+  }
+  @keyframes exec-burn-curl {
+    0%   { transform: translate(-50%, -50%) scale(1) skewX(0deg); opacity: 1; }
+    50%  { transform: translate(-50%, -50%) scale(1) skewX(0deg); opacity: 1; }
+    75%  { transform: translate(-50%, -50%) scale(0.98) skewX(2deg); opacity: 1; }
+    100% { transform: translate(-50%, -50%) translateY(14px) scale(0.9) skewX(-3deg) rotate(2deg); opacity: 0; }
+  }
   .exec-body.burn {
     position: relative;
-    animation: exec-burn 1.95s linear forwards;
+    /* Many small lobes => the unburnt island is lumpy, never a tidy rectangle.
+       Centers jittered per-run in JS. */
+    --b0x: 50%; --b0y: 50%;
+    --b1x: 18%; --b1y: 22%;
+    --b2x: 82%; --b2y: 18%;
+    --b3x: 84%; --b3y: 82%;
+    --b4x: 16%; --b4y: 80%;
+    --b5x: 50%; --b5y: 12%;
+    --b6x: 88%; --b6y: 50%;
+    --b7x: 12%; --b7y: 50%;
+    --b8x: 50%; --b8y: 88%;
+    --burn-mask:
+      radial-gradient(circle at var(--b0x) var(--b0y), #000 38%, rgba(0,0,0,0) 64%),
+      radial-gradient(circle at var(--b1x) var(--b1y), #000 38%, rgba(0,0,0,0) 64%),
+      radial-gradient(circle at var(--b2x) var(--b2y), #000 38%, rgba(0,0,0,0) 64%),
+      radial-gradient(circle at var(--b3x) var(--b3y), #000 38%, rgba(0,0,0,0) 64%),
+      radial-gradient(circle at var(--b4x) var(--b4y), #000 38%, rgba(0,0,0,0) 64%),
+      radial-gradient(circle at var(--b5x) var(--b5y), #000 38%, rgba(0,0,0,0) 64%),
+      radial-gradient(circle at var(--b6x) var(--b6y), #000 38%, rgba(0,0,0,0) 64%),
+      radial-gradient(circle at var(--b7x) var(--b7y), #000 38%, rgba(0,0,0,0) 64%),
+      radial-gradient(circle at var(--b8x) var(--b8y), #000 38%, rgba(0,0,0,0) 64%);
+    -webkit-mask-image: var(--burn-mask);
+    mask-image: var(--burn-mask);
+    -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat;
+    -webkit-mask-position: center; mask-position: center;
+    animation: exec-burn 2.1s ease-in forwards, exec-eat 2.1s ease-in forwards;
   }
-  .exec-body.burn::after {
-    /* The advancing char front: a black wash rising from the bottom edge. */
+  /* Ember overlay: a warm orange/red glow that heats the still-unburnt material.
+     It's a child-level layer, so the parent's mask clips it to the eroding
+     island — the remaining card glows like a coal instead of going black. */
+  .exec-body.burn::before {
     content: '';
     position: absolute;
-    inset: -2px;
+    inset: 0;
     border-radius: 12px;
-    background: linear-gradient(to top,
-      rgba(8,7,6,1) 0%, rgba(20,12,8,0.96) 18%,
-      rgba(60,24,10,0.7) 30%, rgba(120,50,16,0.35) 40%, rgba(0,0,0,0) 52%);
-    background-size: 100% 250%;
-    background-position: 0% 0%;
     pointer-events: none;
-    animation: exec-char 1.95s ease-in forwards;
-  }
-  @keyframes exec-burn {
-    0%   { filter: brightness(1) saturate(1) contrast(1); opacity: 1; transform: translate(-50%, -50%) scaleY(1); }
-    30%  { filter: brightness(0.95) saturate(1.6) contrast(1.05); }
-    55%  { filter: brightness(0.6) saturate(1.4) contrast(1.15); }
-    78%  { filter: brightness(0.22) saturate(0.6) contrast(1.3); opacity: 1; transform: translate(-50%, -50%) scaleY(0.99); }
-    90%  { filter: brightness(0.04) contrast(1.4); opacity: 1; transform: translate(-50%, -50%) scaleY(0.97) translateY(2px); }
-    100% { filter: brightness(0); opacity: 0; transform: translate(-50%, -50%) scaleY(0.82) translateY(14px) rotate(2deg); }
-  }
-  @keyframes exec-char {
-    0%   { background-position: 0% 120%; opacity: 0; }
-    12%  { opacity: 1; }
-    100% { background-position: 0% -10%; opacity: 1; }
-  }
-  /* Several independent flame tongues stacked at the base, each with its own
-     flicker timing/offset so the fire dances instead of pulsing uniformly. */
-  .exec-flame {
-    width: var(--fw, 80px);
-    height: var(--fh, 150px);
-    border-radius: 50% 50% 46% 46% / 70% 70% 30% 30%;
-    background: radial-gradient(ellipse 60% 80% at 50% 92%,
-      rgba(255,248,200,0.98) 0%,
-      rgba(255,210,90,0.95) 22%,
-      rgba(255,140,30,0.9) 45%,
-      rgba(230,70,18,0.7) 66%,
-      rgba(150,24,8,0.25) 82%,
-      rgba(90,12,6,0) 92%);
-    filter: blur(3px);
+    background:
+      radial-gradient(circle at 50% 60%, rgba(255,170,60,0.95), rgba(255,90,20,0.85) 45%, rgba(190,40,12,0.9) 100%);
     mix-blend-mode: screen;
     opacity: 0;
-    transform-origin: 50% 100%;
-    margin-left: var(--fox, 0px);
-    animation:
-      exec-flames var(--fdur, 1.7s) ease-in forwards,
-      flame-dance var(--flick, 0.22s) ease-in-out infinite alternate;
-    animation-delay: var(--fdelay, 0s), var(--fdelay, 0s);
+    animation: exec-ember 2.1s ease-in forwards;
   }
-  @keyframes exec-flames {
-    0%   { opacity: 0; transform: translate(-50%, -30%) scaleY(0.15) scaleX(0.8); }
-    18%  { opacity: 0.95; transform: translate(-50%, -50%) scaleY(1.2) scaleX(1); }
-    55%  { opacity: 1; transform: translate(-50%, -50%) scaleY(1.05) scaleX(0.95); }
-    80%  { opacity: 0.8; transform: translate(-50%, -55%) scaleY(0.9) scaleX(0.9); }
-    100% { opacity: 0; transform: translate(-50%, -60%) scaleY(0.4) scaleX(0.7); }
+  @keyframes exec-ember {
+    0%   { opacity: 0; }
+    20%  { opacity: 0.85; }
+    70%  { opacity: 1; }
+    100% { opacity: 1; }
   }
-  /* Flicker only touches filter — exec-flames owns transform (no clobber). */
-  @keyframes flame-dance {
-    0%   { filter: blur(2.5px) brightness(1.18) hue-rotate(6deg); }
-    100% { filter: blur(4.5px) brightness(0.82) hue-rotate(-6deg); }
+  /* Material stays glowing-warm (no early darken); ember drop-shadow hugs the
+     eroding mask edge so the burn front glows. Centering handled by wrapper. */
+  @keyframes exec-burn {
+    0%   { filter: brightness(1) saturate(1) drop-shadow(0 0 0 rgba(255,140,40,0)); }
+    25%  { filter: brightness(1.15) saturate(1.5) drop-shadow(0 0 8px rgba(255,150,45,0.95)); }
+    70%  { filter: brightness(1.1) saturate(1.7) drop-shadow(0 0 14px rgba(255,90,20,1)); }
+    100% { filter: brightness(0.85) saturate(1.5) drop-shadow(0 0 8px rgba(220,70,18,0.7)); }
+  }
+  /* Per-lobe mask-size tracks. Staggered values => fronts advance unevenly; the
+     outer lobes start small (corners/edges char first), all reach 0 so the
+     island collapses fully to the center. */
+  @keyframes exec-eat {
+    0%   { -webkit-mask-size: 230% 230%, 130% 130%, 150% 150%, 120% 120%, 145% 145%, 110% 110%, 125% 125%, 115% 115%, 120% 120%;
+                   mask-size: 230% 230%, 130% 130%, 150% 150%, 120% 120%, 145% 145%, 110% 110%, 125% 125%, 115% 115%, 120% 120%; }
+    35%  { -webkit-mask-size: 175% 175%, 70% 70%, 95% 95%, 55% 55%, 90% 90%, 45% 45%, 70% 70%, 60% 60%, 65% 65%;
+                   mask-size: 175% 175%, 70% 70%, 95% 95%, 55% 55%, 90% 90%, 45% 45%, 70% 70%, 60% 60%, 65% 65%; }
+    70%  { -webkit-mask-size: 105% 105%, 20% 20%, 45% 45%, 12% 12%, 38% 38%, 8% 8%, 22% 22%, 14% 14%, 18% 18%;
+                   mask-size: 105% 105%, 20% 20%, 45% 45%, 12% 12%, 38% 38%, 8% 8%, 22% 22%, 14% 14%, 18% 18%; }
+    100% { -webkit-mask-size: 0% 0%, 0% 0%, 0% 0%, 0% 0%, 0% 0%, 0% 0%, 0% 0%, 0% 0%, 0% 0%;
+                   mask-size: 0% 0%, 0% 0%, 0% 0%, 0% 0%, 0% 0%, 0% 0%, 0% 0%, 0% 0%, 0% 0%; }
   }
   .exec-ash {
     width: 8px;
@@ -1152,6 +1181,17 @@
 </div>
 <div id="playersContainer"></div>
 <div id="execFxLayer"></div>
+<!-- Ragged-edge filter for the burn FX: fractal noise displaces the burn mask's
+     smooth front into a torn, fibrous char line (paper, not clean arcs). The
+     seed is re-randomized per burn so no two tears look alike. -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <filter id="paper-burn" x="-25%" y="-25%" width="150%" height="150%" color-interpolation-filters="sRGB">
+    <feTurbulence id="paper-burn-turb" type="fractalNoise" baseFrequency="0.028 0.04" numOctaves="2" seed="7" result="noise"/>
+    <feDisplacementMap in="SourceGraphic" in2="noise" scale="0" xChannelSelector="R" yChannelSelector="G">
+      <animate id="paper-burn-disp" attributeName="scale" from="0" to="16" dur="2.1s" begin="indefinite" fill="freeze"/>
+    </feDisplacementMap>
+  </filter>
+</svg>
 
 <script>
 const playersContainer = document.getElementById("playersContainer");
@@ -1230,16 +1270,28 @@ function runPhaseSweep(phaseKey) {
 // Play a random one-shot sound effect layered on top of current audio (does not
 // touch the background music track). Fire-and-forget.
 // `volume` (0-1) and `delay` (ms before playing) are optional.
+// Live SFX retained here so the browser can't garbage-collect an Audio element
+// mid-playback (which silently dropped sounds). Removed once they finish/error.
+const liveSfx = new Set();
+function playSfxFile(path, volume = 0.9, delay = 0) {
+  const sfx = new Audio(path.charAt(0) === '/' ? path : '/' + path);
+  sfx.volume = volume;
+  sfx.preload = 'auto';
+  liveSfx.add(sfx); // keep a strong ref until done
+  const release = () => liveSfx.delete(sfx);
+  sfx.addEventListener('ended', release);
+  sfx.addEventListener('error', release);
+  const start = () => sfx.play().catch(e => { console.warn('SFX play blocked:', e); release(); });
+  if (delay > 0) setTimeout(start, delay); else start();
+  return sfx;
+}
 function playSfx(category, volume = 0.9, delay = 0) {
   fetch(`/api/sounds/${category}`)
     .then(r => r.ok ? r.json() : [])
     .then(files => {
       if (!files || files.length === 0) return;
       const pick = files[Math.floor(Math.random() * files.length)];
-      const sfx = new Audio('/' + pick);
-      sfx.volume = volume;
-      const start = () => sfx.play().catch(e => console.warn('SFX play blocked:', e));
-      if (delay > 0) setTimeout(start, delay); else start();
+      playSfxFile(pick, volume, delay);
     })
     .catch(e => console.warn('Could not load SFX:', e));
 }
@@ -1249,8 +1301,18 @@ function playSfx(category, volume = 0.9, delay = 0) {
 // space; since that container fills the viewport it maps 1:1 to the fixed layer.
 // Returns ms until the seat should re-materialize the card (after the spirit
 // has risen back). Each call randomly picks one of four destruction styles.
+// Pick one of the 4 execution variants, but never the same one twice in a row
+// (pseudorandom — reroll once if it matches the last played).
+let lastExecVariant = -1;
+function pickExecVariant() {
+  let v = Math.floor(Math.random() * 4);
+  if (v === lastExecVariant) v = (v + 1 + Math.floor(Math.random() * 3)) % 4;
+  lastExecVariant = v;
+  return v;
+}
+
 function spawnExecutionFx(x, y, name) {
-  if (!execFxLayer) return 2200;
+  if (!execFxLayer) return { revealAt: 2200, sfx: null };
   const rect = playersContainer.getBoundingClientRect();
   const px = rect.left + x;
   const py = rect.top + y;
@@ -1269,19 +1331,31 @@ function spawnExecutionFx(x, y, name) {
     av.textContent = initials(name);
     av.style.background = avatarColor(name);
     const nm = document.createElement('div');
+    nm.className = 'player-name';
     nm.textContent = name;
+    // Status row so the FX copy matches the real card's height (without it the
+    // card looks like it shrinks the instant the FX takes over the seat).
+    const status = document.createElement('div');
+    status.className = 'player-status';
+    const skull = document.createElement('span');
+    skull.className = 'status-icon';
+    skull.textContent = '⚖️';
+    skull.style.color = '#ff8c00';
+    status.appendChild(skull);
     body.appendChild(av);
     body.appendChild(nm);
+    body.appendChild(status);
     return body;
   };
 
   // gd = ghost-rise delay (set after the destruction finishes for each variant).
-  const variant = Math.floor(Math.random() * 4);
-  let gd;
-  if (variant === 0) { gd = 0.95; fxShatter(fx, name, 0, 0); }
-  else if (variant === 1) { gd = fxFall(fx, makeBody, name, py); }
-  else if (variant === 2) { gd = 1.65; fxZip(fx, makeBody, px, py); }
-  else { gd = 2.05; fxBurn(fx, makeBody); }
+  // Pseudorandom: avoid replaying the same variant back-to-back.
+  const variant = pickExecVariant();
+  let gd, sfx;
+  if (variant === 0) { gd = 0.95; fxShatter(fx, name, 0, 0); sfx = playSfxFile('assets/death-sounds/glass.mp3', 0.7); }
+  else if (variant === 1) { gd = fxFall(fx, makeBody, name, py); sfx = playSfxFile('assets/death-sounds/guillotine.mp3', 0.7); }
+  else if (variant === 2) { gd = 1.65; fxZip(fx, makeBody, px, py); sfx = playSfxFile('assets/death-sounds/whoosh.mp3', 0.7); }
+  else { gd = 2.2; fxBurn(fx, makeBody); sfx = playSfxFile('assets/death-sounds/fire.mp3', 0.7); }
 
   // Smoky mist rising from the seat as the ghost ascends (independent siblings
   // so the ghost's own fade can't multiply them away).
@@ -1305,7 +1379,13 @@ function spawnExecutionFx(x, y, name) {
   const life = (gd + 1.3 + 0.6) * 1000;
   execFxLayer.appendChild(fx);
   setTimeout(() => fx.remove(), life);
-  return Math.round((gd + 1.25) * 1000);
+  return { revealAt: Math.round((gd + 1.25) * 1000), sfx };
+}
+
+// ms from now until the variant sound finishes (NaN-safe; 0 if unknown/done).
+function sfxRemainingMs(sfx) {
+  if (!sfx || !isFinite(sfx.duration)) return 0;
+  return Math.max(0, (sfx.duration - sfx.currentTime) * 1000);
 }
 
 // Variant 1: shatter into 5 jagged wedges + glass shards.
@@ -1408,28 +1488,37 @@ function fxZip(fx, makeBody, px, py) {
   fx.appendChild(body);
 }
 
-// Variant 4: burnt at the stake — dancing flame tongues engulf the card while
-// it gradually chars to black, then it crumbles into rising ash.
+// Variant 4: burnt at the stake — the card is consumed from its edges inward
+// (char + ember front), then crumbles into rising ash. No flames.
 function fxBurn(fx, makeBody) {
-  fx.appendChild(makeBody('burn'));
-  // Several flame tongues across the base, staggered for a dancing fire.
-  const TONGUES = 6;
-  for (let i = 0; i < TONGUES; i++) {
-    const fl = document.createElement('div');
-    fl.className = 'exec-flame';
-    const t = (i + 0.5) / TONGUES;               // 0..1 across the card width
-    fl.style.setProperty('--fox', Math.round((t - 0.5) * 120) + 'px');
-    fl.style.setProperty('--fw', (50 + Math.random() * 55).toFixed(0) + 'px');
-    // Center tongues are tallest; edges shorter, for a flame envelope.
-    const tall = 1 - Math.abs(t - 0.5) * 1.2;
-    fl.style.setProperty('--fh', (110 + tall * 90 + Math.random() * 30).toFixed(0) + 'px');
-    fl.style.setProperty('--fdur', (1.55 + Math.random() * 0.4).toFixed(2) + 's');
-    fl.style.setProperty('--flick', (0.16 + Math.random() * 0.14).toFixed(2) + 's');
-    fl.style.setProperty('--fdelay', (Math.random() * 0.22).toFixed(2) + 's');
-    fx.appendChild(fl);
-  }
-  // Ash starts rising only once the card has charred (burn runs ~1.95s).
-  const ASH = 20;
+  const body = makeBody('burn');
+  // Jitter the 9 erosion lobe centers so the unburnt island differs each run.
+  // Lobe 0 near center; 1-4 corners; 5-8 edge midpoints (all with wobble).
+  const jit = () => (Math.random() * 16 - 8);
+  const lobes = [
+    [50, 50], [18 + jit(), 22 + jit()], [82 + jit(), 18 + jit()],
+    [84 + jit(), 82 + jit()], [16 + jit(), 80 + jit()],
+    [50 + jit(), 12 + jit()], [88 + jit(), 50 + jit()],
+    [12 + jit(), 50 + jit()], [50 + jit(), 88 + jit()],
+  ];
+  lobes.forEach(([lx, ly], i) => {
+    body.style.setProperty('--b' + i + 'x', lx.toFixed(0) + '%');
+    body.style.setProperty('--b' + i + 'y', ly.toFixed(0) + '%');
+  });
+  // Re-seed the fractal-noise filter so the torn char edge is unique each burn.
+  const turb = document.getElementById('paper-burn-turb');
+  if (turb) turb.setAttribute('seed', Math.floor(Math.random() * 9999));
+  // Ramp displacement 0->16 over the burn so the card tears gradually, not at frame 0.
+  const disp = document.getElementById('paper-burn-disp');
+  if (disp && disp.beginElement) disp.beginElement();
+  // Wrapper carries the displacement filter (must be an ancestor of the masked
+  // body so it tears the masked edge, not the clean card).
+  const wrap = document.createElement('div');
+  wrap.className = 'exec-burn-wrap';
+  wrap.appendChild(body);
+  fx.appendChild(wrap);
+  // Ash starts rising as the burn front nears the center (burn runs ~2.1s).
+  const ASH = 22;
   for (let a = 0; a < ASH; a++) {
     const ash = document.createElement('div');
     ash.className = 'exec-ash';
@@ -1438,7 +1527,7 @@ function fxBurn(fx, makeBody) {
     ash.style.setProperty('--dx', (Math.cos(ang) * dist).toFixed(0) + 'px');
     ash.style.setProperty('--dy', (Math.sin(ang) * dist).toFixed(0) + 'px');
     ash.style.setProperty('--mo', (0.5 + Math.random() * 0.4).toFixed(2));
-    ash.style.animationDelay = (1.5 + Math.random() * 0.5).toFixed(2) + 's';
+    ash.style.animationDelay = (1.2 + Math.random() * 0.7).toFixed(2) + 's';
     fx.appendChild(ash);
   }
 }
@@ -1667,8 +1756,22 @@ function render() {
       if (!p.alive && p.deathCause === 'executed') {
         const name = p.name;
         execFxActive[name] = true;
-        const revealAt = spawnExecutionFx(x, y, name);
-        playSfx('death-sounds', 0.7);
+        // spawnExecutionFx plays the variant-matched sound and returns ms until
+        // the animation finishes (spirit risen / card reforms).
+        const { revealAt, sfx } = spawnExecutionFx(x, y, name);
+        // Toll a finalizer (church bell) 1.2s after BOTH the animation finishes
+        // and the variant sound stops — whichever is later. The variant sound's
+        // length may not be known yet, so resolve it once metadata loads.
+        const scheduleFinalizer = () => {
+          const delay = Math.max(revealAt, sfxRemainingMs(sfx)) + 1200;
+          playSfx('death-finalizer-sounds', 0.7, delay);
+        };
+        if (sfx && !isFinite(sfx.duration)) {
+          sfx.addEventListener('loadedmetadata', scheduleFinalizer, { once: true });
+          sfx.addEventListener('error', scheduleFinalizer, { once: true });
+        } else {
+          scheduleFinalizer();
+        }
         // When the spirit has risen back, reveal the card with a materialize
         // fade-in. Timing depends on which destruction variant played.
         setTimeout(() => {
