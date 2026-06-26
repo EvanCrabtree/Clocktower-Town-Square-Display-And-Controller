@@ -1536,7 +1536,7 @@ function playSfx(category, volume = 0.9, delay = 0) {
 // Like playSfx, but smoothly ramps playbackRate from 1x to `maxRate` across the
 // entire sound, based on playback position (not wall time, so it stays accurate
 // as the rate climbs). Used for nominations.
-function playSfxRamp(category, volume = 0.9, maxRate = 2.5, fadeStartMs = 2000, fadeMs = 600) {
+function playSfxRamp(category, volume = 0.9, maxRate = 2.5, fadeStartMs = 3500, fadeMs = 600) {
   fetch(`/api/sounds/${category}`)
     .then(r => r.ok ? r.json() : [])
     .then(files => {

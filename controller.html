@@ -361,6 +361,12 @@
 
   .player-actions {
     display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .action-row {
+    display: flex;
     gap: 8px;
     flex-wrap: wrap;
   }
@@ -1134,48 +1140,63 @@ function renderPlayers() {
     const actionsDiv = document.createElement("div");
     actionsDiv.className = "player-actions";
 
+    const isDay = phaseSelect.value === 'Day';
+    const mkRow = () => { const r = document.createElement("div"); r.className = "action-row"; return r; };
+
+    // Row 1: Execute & Kill (alive) / Revive (dead)
+    const row1 = mkRow();
     if (p.alive) {
       // Two distinct death causes
       const executeBtn = document.createElement("button");
       executeBtn.className = "btn execute";
       executeBtn.textContent = "Execute";
       executeBtn.onclick = (e) => { e.stopPropagation(); killPlayer(index, 'executed'); };
-      actionsDiv.appendChild(executeBtn);
+      row1.appendChild(executeBtn);
 
       const killBtn = document.createElement("button");
       killBtn.className = "btn kill";
       killBtn.textContent = "Kill";
       killBtn.onclick = (e) => { e.stopPropagation(); killPlayer(index, 'killed'); };
-      actionsDiv.appendChild(killBtn);
+      row1.appendChild(killBtn);
     } else {
       const reviveBtn = document.createElement("button");
       reviveBtn.className = "btn";
       reviveBtn.textContent = "Revive";
       reviveBtn.onclick = (e) => { e.stopPropagation(); revivePlayer(index); };
-      actionsDiv.appendChild(reviveBtn);
+      row1.appendChild(reviveBtn);
     }
+    actionsDiv.appendChild(row1);
 
-    const travelerBtn = document.createElement("button");
-    travelerBtn.className = "btn";
-    travelerBtn.textContent = p.traveler ? "Unset Traveler" : "Set Traveler";
-    travelerBtn.onclick = (e) => { e.stopPropagation(); p.traveler = !p.traveler; sendUpdate(); };
-    actionsDiv.appendChild(travelerBtn);
-
-    // Remove Ghost only meaningful for dead players
-    if (!p.alive) {
-      const ghostBtn = document.createElement("button");
-      ghostBtn.className = "btn";
-      ghostBtn.textContent = p.ghostVote ? "Remove Ghost" : "Add Ghost";
-      ghostBtn.onclick = (e) => { e.stopPropagation(); p.ghostVote = !p.ghostVote; sendUpdate(); };
-      actionsDiv.appendChild(ghostBtn);
-    }
-
-    // Nominate and Put on Block only apply during the day
-    const isDay = phaseSelect.value === 'Day';
+    // Row 2: Nominate & Put on Block — only apply during the day
     if (isDay) {
+      const row2 = mkRow();
+      const nominateBtn = document.createElement("button");
+      nominateBtn.className = "btn";
+      nominateBtn.textContent = (state.nominatedPlayer === index) ? "Un-Nom" : "Nom";
+      nominateBtn.onclick = (e) => {
+        e.stopPropagation();
+        if (state.nominatedPlayer === index) {
+          clearNomination();
+        } else {
+          const opening = nominatingPlayer !== index;
+          nominatingPlayer = opening ? index : null;
+          renderPlayers();
+          // Open the dropdown synchronously, still inside this click's user
+          // gesture (mobile blocks showPicker/focus from async callbacks).
+          if (opening) {
+            const sel = document.getElementById("nominatorSelect");
+            if (sel) {
+              sel.focus();
+              if (sel.showPicker) { try { sel.showPicker(); } catch (err) {} }
+            }
+          }
+        }
+      };
+      row2.appendChild(nominateBtn);
+
       const onBlockBtn = document.createElement("button");
       onBlockBtn.className = "btn";
-      onBlockBtn.textContent = (state.onBlockPlayer === index) ? "Remove from Block" : "Put on Block";
+      onBlockBtn.textContent = (state.onBlockPlayer === index) ? "Un-Block" : "Block";
       onBlockBtn.onclick = (e) => {
         e.stopPropagation();
         if (state.onBlockPlayer === index) {
@@ -1186,28 +1207,35 @@ function renderPlayers() {
           renderPlayers();
         }
       };
-      actionsDiv.appendChild(onBlockBtn);
-
-      const nominateBtn = document.createElement("button");
-      nominateBtn.className = "btn";
-      nominateBtn.textContent = (state.nominatedPlayer === index) ? "Un-nominate" : "Nominate";
-      nominateBtn.onclick = (e) => {
-        e.stopPropagation();
-        if (state.nominatedPlayer === index) {
-          clearNomination();
-        } else {
-          nominatingPlayer = (nominatingPlayer === index) ? null : index;
-          renderPlayers();
-        }
-      };
-      actionsDiv.appendChild(nominateBtn);
+      row2.appendChild(onBlockBtn);
+      actionsDiv.appendChild(row2);
     }
 
+    // Row 3: Remove Ghost (dead only) & Set Traveler
+    const row3 = mkRow();
+    if (!p.alive) {
+      const ghostBtn = document.createElement("button");
+      ghostBtn.className = "btn";
+      ghostBtn.textContent = p.ghostVote ? "Remove Ghost" : "Add Ghost";
+      ghostBtn.onclick = (e) => { e.stopPropagation(); p.ghostVote = !p.ghostVote; sendUpdate(); };
+      row3.appendChild(ghostBtn);
+    }
+
+    const travelerBtn = document.createElement("button");
+    travelerBtn.className = "btn";
+    travelerBtn.textContent = p.traveler ? "Unset Traveler" : "Set Traveler";
+    travelerBtn.onclick = (e) => { e.stopPropagation(); p.traveler = !p.traveler; sendUpdate(); };
+    row3.appendChild(travelerBtn);
+    actionsDiv.appendChild(row3);
+
+    // Row 4: Remove Player
+    const row4 = mkRow();
     const removeBtn = document.createElement("button");
     removeBtn.className = "btn danger";
-    removeBtn.textContent = "Remove";
+    removeBtn.textContent = "Remove Player";
     removeBtn.onclick = (e) => { e.stopPropagation(); removePlayer(index); };
-    actionsDiv.appendChild(removeBtn);
+    row4.appendChild(removeBtn);
+    actionsDiv.appendChild(row4);
 
     card.appendChild(actionsDiv);
 
@@ -1221,6 +1249,7 @@ function renderPlayers() {
       panel.appendChild(label);
 
       const select = document.createElement("select");
+      select.id = "nominatorSelect";
       const placeholder = document.createElement("option");
       placeholder.value = "";
       placeholder.textContent = "Select nominator...";
