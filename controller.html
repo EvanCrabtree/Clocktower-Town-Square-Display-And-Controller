@@ -567,6 +567,39 @@
     padding: 10px 15px;
     font-size: 0.9em;
     z-index: 1000;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .refresh-btn {
+    background: rgba(139, 69, 19, 0.35);
+    border: 1px solid rgba(212, 180, 131, 0.5);
+    color: #d4b483;
+    border-radius: 8px;
+    padding: 5px 10px;
+    font-size: 0.85em;
+    font-family: inherit;
+    cursor: pointer;
+    transition: background 0.2s, border-color 0.2s;
+  }
+
+  .refresh-btn:hover {
+    background: rgba(139, 69, 19, 0.6);
+    border-color: rgba(212, 180, 131, 0.9);
+    color: #fff;
+  }
+
+  .connection-status.disconnected .refresh-btn {
+    background: rgba(220, 20, 60, 0.3);
+    border-color: rgba(255, 107, 107, 0.7);
+    color: #ff6b6b;
+    animation: refresh-pulse 1.6s ease-in-out infinite;
+  }
+
+  @keyframes refresh-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(255, 107, 107, 0.4); }
+    50%      { box-shadow: 0 0 0 5px rgba(255, 107, 107, 0); }
   }
 
   .connection-status.connected {
@@ -689,7 +722,10 @@
 </style>
 </head>
 <body>
-<div class="connection-status" id="connectionStatus">Connecting...</div>
+<div class="connection-status" id="connectionStatus">
+  <span id="connectionText">Connecting...</span>
+  <button id="refreshBtn" class="refresh-btn" onclick="location.reload()" title="Reload to reconnect">⟳ Refresh</button>
+</div>
 
 <div class="container">
   <header>
@@ -780,12 +816,13 @@ const ws = new WebSocket('ws://YOUR_IP:8080');
 phaseSelect.value = 'Night';
 phaseNumber.value = '1';
 
+const connectionText = document.getElementById("connectionText");
 function updateConnectionStatus(connected) {
   if (connected) {
-    connectionStatus.textContent = 'Connected';
+    connectionText.textContent = 'Connected';
     connectionStatus.className = 'connection-status connected';
   } else {
-    connectionStatus.textContent = 'Disconnected';
+    connectionText.textContent = 'Disconnected';
     connectionStatus.className = 'connection-status disconnected';
   }
 }

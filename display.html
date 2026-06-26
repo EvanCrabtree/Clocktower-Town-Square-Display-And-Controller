@@ -88,7 +88,7 @@
     font-size: clamp(0.8em, 1.3vw, 1.0em);
     white-space: nowrap;
     background: rgba(20, 20, 30, 0.9);
-    border: 2px solid rgba(139, 69, 19, 0.4);
+    border: 2.2px solid rgba(139, 69, 19, 0.4);
     border-radius: 12px;
     padding: clamp(4px, 1vw, 6px);
     box-shadow: 
@@ -111,17 +111,17 @@
   }
 
   body.day-theme .player-card.dead {
-    background: rgba(80, 40, 40, 0.7);
-    border-color: rgba(220, 20, 60, 0.5);
-    box-shadow: 
-      0 8px 32px rgba(139, 0, 0, 0.2),
-      inset 0 1px 0 rgba(255, 100, 100, 0.1);
-    opacity: 0.7;
+    background: rgba(70, 74, 82, 0.72);
+    border-color: rgba(150, 158, 170, 0.5);
+    box-shadow:
+      0 8px 32px rgba(0, 0, 0, 0.22),
+      inset 0 1px 0 rgba(210, 215, 225, 0.12);
+    opacity: 0.72;
   }
 
   body.day-theme .player-card.on-block {
     border-color: rgba(255, 215, 0, 0.8);
-    border-width: 3px;
+    border-width: 3.3px;
     box-shadow: 
       0 0 20px rgba(255, 215, 0, 0.4),
       0 8px 32px rgba(0, 0, 0, 0.3),
@@ -167,18 +167,18 @@
   }
 
   .player-card.dead {
-    background: rgba(40, 20, 20, 0.8);
-    border-color: rgba(178, 34, 34, 0.4);
-    opacity: 0.7;
+    background: rgba(38, 40, 46, 0.82);
+    border-color: rgba(150, 158, 170, 0.45);
+    opacity: 0.72;
   }
 
   body.night-theme .player-card.dead {
-    background: rgba(60, 20, 20, 0.7);
-    border-color: rgba(220, 20, 60, 0.6);
-    box-shadow: 
-      0 8px 32px rgba(139, 0, 0, 0.3),
-      inset 0 1px 0 rgba(255, 100, 100, 0.1);
-    opacity: 0.6;
+    background: rgba(44, 48, 56, 0.78);
+    border-color: rgba(165, 175, 190, 0.5);
+    box-shadow:
+      0 8px 32px rgba(0, 0, 0, 0.35),
+      inset 0 1px 0 rgba(200, 210, 225, 0.12);
+    opacity: 0.66;
   }
 
   body.night-theme .player-card.alive {
@@ -191,7 +191,7 @@
 
   body.day-theme .player-card.nominated {
     border-color: rgba(0, 191, 255, 0.8);
-    border-width: 3px;
+    border-width: 3.3px;
     box-shadow: 
       0 0 20px rgba(0, 191, 255, 0.4),
       0 8px 32px rgba(0, 0, 0, 0.3),
@@ -216,7 +216,7 @@
 
   body.day-theme .player-card.nominator {
     border-color: rgba(220, 20, 60, 0.8);
-    border-width: 3px;
+    border-width: 3.3px;
     box-shadow:
       0 0 20px rgba(220, 20, 60, 0.4),
       0 8px 32px rgba(0, 0, 0, 0.3),
@@ -241,7 +241,7 @@
 
   body.day-theme .player-card.self-nominated {
     border-color: rgba(255, 215, 0, 0.85);
-    border-width: 3px;
+    border-width: 3.3px;
     box-shadow:
       0 0 20px rgba(255, 215, 0, 0.5),
       0 8px 32px rgba(0, 0, 0, 0.3),
@@ -285,6 +285,61 @@
     filter: grayscale(0.7) brightness(0.6);
   }
 
+  /* Dead = ghost: let mist escape the card, give a faint spectral glow. */
+  .player-card.dead {
+    overflow: visible;
+  }
+  .player-card.dead .player-name {
+    text-shadow: 0 0 8px rgba(190, 198, 210, 0.6);
+  }
+
+  /* Animated wispy, wavy border: a ring pseudo-element warped by an SVG
+     turbulence filter (which animates via SMIL) and softly pulsing. */
+  .player-card.dead::after {
+    content: "";
+    position: absolute;
+    inset: -3px;
+    border-radius: 14px;
+    border: 2px solid rgba(190, 200, 214, 0.65);
+    box-shadow: 0 0 10px rgba(180, 195, 215, 0.35), inset 0 0 8px rgba(180, 195, 215, 0.25);
+    pointer-events: none;
+    filter: url(#ghostWisp);
+    animation: ghost-border-pulse 3s ease-in-out infinite;
+  }
+
+  @keyframes ghost-border-pulse {
+    0%, 100% { opacity: 0.5; border-color: rgba(185, 195, 210, 0.5); }
+    50%      { opacity: 0.95; border-color: rgba(210, 220, 235, 0.85); }
+  }
+
+  /* Mist layer fills the card; puffs spawn around the whole perimeter and
+     drift outward in their own direction (--dx,--dy). */
+  .card-mist {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: -1;
+  }
+  .card-mist-puff {
+    position: absolute;
+    left: var(--px, 50%);
+    top: var(--py, 50%);
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(210, 216, 226, 0.5) 0%, rgba(180, 188, 202, 0.28) 45%, rgba(170, 180, 195, 0) 72%);
+    filter: blur(5px);
+    opacity: 0;
+    transform: translate(-50%, -50%);
+    animation: card-mist-drift 3.6s ease-out infinite;
+  }
+
+  @keyframes card-mist-drift {
+    0%   { transform: translate(-50%, -50%) translate(0, 0) scale(0.4); opacity: 0; }
+    30%  { opacity: var(--mo, 0.3); }
+    100% { transform: translate(-50%, -50%) translate(var(--dx), var(--dy)) scale(1.5); opacity: 0; }
+  }
+
   /* Death / revive transitions — applied once when state changes.
      Keep translate(-50%, -50%) in every frame so the card stays centered on its point. */
   @keyframes death-fall {
@@ -301,6 +356,14 @@
 
   .player-card.just-died { animation: death-fall 0.9s ease-out; }
   .player-card.just-revived { animation: revive-rise 0.8s ease-out; }
+
+  /* Card reforming after an execution ghost has risen back to its seat. */
+  @keyframes materialize {
+    0%   { transform: translate(-50%, -50%) scale(0.6); opacity: 0; filter: blur(8px) brightness(2); }
+    55%  { opacity: 1; filter: blur(2px) brightness(1.4); }
+    100% { transform: translate(-50%, -50%) scale(1); opacity: 1; filter: none; }
+  }
+  .player-card.just-materialized { animation: materialize 0.9s ease-out; }
 
   /* Execution FX: a copy of the living card collapses to the floor, shatters,
      then a ghost rises back to the seat (lerp). Lives in its own overlay so the
@@ -321,18 +384,27 @@
     transform: translate(-50%, -50%);
   }
 
-  .exec-body {
+  /* The card shatters into 5 jagged fragments. Each is a full copy of the card
+     clipped to one wedge; they fly apart (--tx,--ty), spin (--rot) and fade. */
+  .exec-piece {
     width: clamp(120px, 10vw, 160px);
     padding: clamp(4px, 1vw, 6px);
     border-radius: 12px;
     background: rgba(20, 20, 30, 0.95);
-    border: 2px solid rgba(139, 69, 19, 0.5);
+    border: 2.2px solid rgba(139, 69, 19, 0.5);
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
     text-align: center;
     color: #fff;
-    animation: exec-collapse 0.75s cubic-bezier(0.55, 0.06, 0.68, 0.19) forwards;
+    box-sizing: border-box;
+    animation: exec-shatter 1s cubic-bezier(0.33, 0.0, 0.3, 1) forwards;
   }
-  .exec-body .exec-avatar {
+  /* 5 jagged wedges radiating from the card center. */
+  .exec-piece.p0 { clip-path: polygon(50% 50%, 0 18%, 0 0, 44% 0); }
+  .exec-piece.p1 { clip-path: polygon(50% 50%, 44% 0, 100% 0, 100% 38%); }
+  .exec-piece.p2 { clip-path: polygon(50% 50%, 100% 38%, 100% 100%, 62% 100%); }
+  .exec-piece.p3 { clip-path: polygon(50% 50%, 62% 100%, 12% 100%, 0 70%); }
+  .exec-piece.p4 { clip-path: polygon(50% 50%, 0 70%, 0 18%); }
+  .exec-fx .exec-avatar {
     width: 48px;
     height: 48px;
     border-radius: 50%;
@@ -344,49 +416,205 @@
     color: #fff;
   }
 
-  .exec-shard {
-    width: 14px;
-    height: 14px;
-    background: linear-gradient(135deg, #c9d4e0, #7c8896);
-    border-radius: 2px;
+  /* A whole-card copy (no clip) used by the dust / zip / burn variants. */
+  .exec-body {
+    width: clamp(120px, 10vw, 160px);
+    padding: clamp(4px, 1vw, 6px);
+    border-radius: 12px;
+    background: rgba(20, 20, 30, 0.95);
+    border: 2.2px solid rgba(139, 69, 19, 0.5);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    text-align: center;
+    color: #fff;
+    box-sizing: border-box;
+  }
+
+  /* --- Variant 2: fall to the ground, then shatter on impact --- */
+  .exec-body.fall { animation: exec-fall var(--fdur, 0.62s) cubic-bezier(0.45, 0, 0.85, 1) forwards; }
+  @keyframes exec-fall {
+    0%   { transform: translate(-50%, -50%) translateY(0) rotate(0deg); opacity: 1; }
+    78%  { transform: translate(-50%, -50%) translateY(var(--fall)) rotate(var(--ftilt, 6deg)); opacity: 1; }
+    90%  { transform: translate(-50%, -50%) translateY(var(--fall)) rotate(var(--ftilt, 6deg)) scaleY(0.9) scaleX(1.06); opacity: 1; }
+    100% { transform: translate(-50%, -50%) translateY(var(--fall)) rotate(var(--ftilt, 6deg)) scaleY(0.92) scaleX(1.04); opacity: 0; }
+  }
+
+  /* --- Variant 3: zip around a random path, fly off screen --- */
+  .exec-body.zip { animation: exec-zip 1.5s cubic-bezier(0.5, 0.0, 0.5, 1) forwards; }
+  @keyframes exec-zip {
+    0%   { transform: translate(-50%, -50%) translate(0, 0) rotate(0deg); opacity: 1; }
+    22%  { transform: translate(-50%, -50%) translate(var(--z1x), var(--z1y)) rotate(var(--r1)); opacity: 1; }
+    44%  { transform: translate(-50%, -50%) translate(var(--z2x), var(--z2y)) rotate(var(--r2)); opacity: 1; }
+    66%  { transform: translate(-50%, -50%) translate(var(--z3x), var(--z3y)) rotate(var(--r3)); opacity: 1; }
+    82%  { opacity: 1; }
+    100% { transform: translate(-50%, -50%) translate(var(--zfx), var(--zfy)) rotate(var(--rf)); opacity: 0; }
+  }
+
+  /* --- Variant 4: burnt at the stake --- */
+  /* Card chars GRADUALLY: charring sweeps up from the base via a moving dark
+     gradient mask, brightness/saturation lerp down to pure black, then it
+     crumbles. brightness() stays continuous so the darkening reads as a lerp. */
+  .exec-body.burn {
+    position: relative;
+    animation: exec-burn 1.95s linear forwards;
+  }
+  .exec-body.burn::after {
+    /* The advancing char front: a black wash rising from the bottom edge. */
+    content: '';
+    position: absolute;
+    inset: -2px;
+    border-radius: 12px;
+    background: linear-gradient(to top,
+      rgba(8,7,6,1) 0%, rgba(20,12,8,0.96) 18%,
+      rgba(60,24,10,0.7) 30%, rgba(120,50,16,0.35) 40%, rgba(0,0,0,0) 52%);
+    background-size: 100% 250%;
+    background-position: 0% 0%;
+    pointer-events: none;
+    animation: exec-char 1.95s ease-in forwards;
+  }
+  @keyframes exec-burn {
+    0%   { filter: brightness(1) saturate(1) contrast(1); opacity: 1; transform: translate(-50%, -50%) scaleY(1); }
+    30%  { filter: brightness(0.95) saturate(1.6) contrast(1.05); }
+    55%  { filter: brightness(0.6) saturate(1.4) contrast(1.15); }
+    78%  { filter: brightness(0.22) saturate(0.6) contrast(1.3); opacity: 1; transform: translate(-50%, -50%) scaleY(0.99); }
+    90%  { filter: brightness(0.04) contrast(1.4); opacity: 1; transform: translate(-50%, -50%) scaleY(0.97) translateY(2px); }
+    100% { filter: brightness(0); opacity: 0; transform: translate(-50%, -50%) scaleY(0.82) translateY(14px) rotate(2deg); }
+  }
+  @keyframes exec-char {
+    0%   { background-position: 0% 120%; opacity: 0; }
+    12%  { opacity: 1; }
+    100% { background-position: 0% -10%; opacity: 1; }
+  }
+  /* Several independent flame tongues stacked at the base, each with its own
+     flicker timing/offset so the fire dances instead of pulsing uniformly. */
+  .exec-flame {
+    width: var(--fw, 80px);
+    height: var(--fh, 150px);
+    border-radius: 50% 50% 46% 46% / 70% 70% 30% 30%;
+    background: radial-gradient(ellipse 60% 80% at 50% 92%,
+      rgba(255,248,200,0.98) 0%,
+      rgba(255,210,90,0.95) 22%,
+      rgba(255,140,30,0.9) 45%,
+      rgba(230,70,18,0.7) 66%,
+      rgba(150,24,8,0.25) 82%,
+      rgba(90,12,6,0) 92%);
+    filter: blur(3px);
+    mix-blend-mode: screen;
     opacity: 0;
-    animation: exec-shard-burst 0.7s ease-out forwards;
-    animation-delay: 0.6s;
+    transform-origin: 50% 100%;
+    margin-left: var(--fox, 0px);
+    animation:
+      exec-flames var(--fdur, 1.7s) ease-in forwards,
+      flame-dance var(--flick, 0.22s) ease-in-out infinite alternate;
+    animation-delay: var(--fdelay, 0s), var(--fdelay, 0s);
+  }
+  @keyframes exec-flames {
+    0%   { opacity: 0; transform: translate(-50%, -30%) scaleY(0.15) scaleX(0.8); }
+    18%  { opacity: 0.95; transform: translate(-50%, -50%) scaleY(1.2) scaleX(1); }
+    55%  { opacity: 1; transform: translate(-50%, -50%) scaleY(1.05) scaleX(0.95); }
+    80%  { opacity: 0.8; transform: translate(-50%, -55%) scaleY(0.9) scaleX(0.9); }
+    100% { opacity: 0; transform: translate(-50%, -60%) scaleY(0.4) scaleX(0.7); }
+  }
+  /* Flicker only touches filter — exec-flames owns transform (no clobber). */
+  @keyframes flame-dance {
+    0%   { filter: blur(2.5px) brightness(1.18) hue-rotate(6deg); }
+    100% { filter: blur(4.5px) brightness(0.82) hue-rotate(-6deg); }
+  }
+  .exec-ash {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(70, 66, 62, 0.95) 0%, rgba(40, 38, 36, 0.6) 60%, rgba(30, 28, 26, 0) 78%);
+    opacity: 0;
+    animation: exec-ash-fall 1.3s ease-in forwards;
+    animation-delay: 1.2s;
+  }
+  @keyframes exec-ash-fall {
+    0%   { transform: translate(-50%, -50%) translate(0, 0) scale(1); opacity: 0; }
+    18%  { opacity: var(--mo, 0.85); }
+    100% { transform: translate(-50%, -50%) translate(var(--dx), var(--dy)) scale(0.6); opacity: 0; }
+  }
+
+  .exec-shard {
+    width: var(--sw, 16px);
+    height: var(--sh, 16px);
+    background: linear-gradient(135deg, #d4dde8, #6b7886);
+    /* Jagged glass sliver — clip-path set per-shard in JS for randomness. */
+    clip-path: var(--clip, polygon(50% 0, 100% 50%, 50% 100%, 0 50%));
+    opacity: 0;
+    animation: exec-shard-burst var(--sd, 0.85s) cubic-bezier(0.2, 0.6, 0.3, 1) forwards;
+    animation-delay: 0.55s;
   }
 
   .exec-ghost {
-    font-size: 2.4em;
-    text-shadow: 0 0 18px rgba(180, 200, 255, 0.8);
+    font-size: 2.6em;
+    color: rgba(214, 230, 255, 0.92);
+    text-shadow:
+      0 0 12px rgba(180, 210, 255, 0.9),
+      0 0 26px rgba(140, 180, 255, 0.7),
+      0 0 44px rgba(120, 160, 255, 0.5);
     opacity: 0;
     white-space: nowrap;
-    animation: exec-ghost-rise 1.6s ease-out forwards;
-    animation-delay: 0.95s;
+    filter: drop-shadow(0 0 6px rgba(190, 215, 255, 0.6));
+    animation:
+      exec-ghost-rise 1.3s ease-out forwards,
+      ghost-waver 2.2s ease-in-out infinite;
+    animation-delay: 0.95s, 0.95s;
   }
   .exec-ghost .exec-ghost-name {
     display: block;
     font-size: 0.42em;
     color: #cdd9ff;
     margin-top: 2px;
+    letter-spacing: 1px;
+    text-shadow: 0 0 10px rgba(160, 190, 255, 0.8);
   }
 
-  @keyframes exec-collapse {
-    0%   { transform: translate(-50%, -50%) translateY(0) scaleY(1) scaleX(1); opacity: 1; }
-    65%  { transform: translate(-50%, -50%) translateY(var(--fall)) scaleY(0.55) scaleX(1.25); opacity: 1; }
-    82%  { transform: translate(-50%, -50%) translateY(var(--fall)) scaleY(0.12) scaleX(1.55); opacity: 1; }
-    100% { transform: translate(-50%, -50%) translateY(var(--fall)) scaleY(0.08) scaleX(1.6); opacity: 0; }
+  /* Smoky mist billowing up from the seat as the ghost rises. Independent
+     siblings (NOT children of the ghost) so the ghost's own fading opacity
+     doesn't multiply them away. Each puff drifts up, swells, dissipates. */
+  .exec-mist {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(205, 222, 255, 0.55) 0%, rgba(170, 195, 245, 0.3) 45%, rgba(150, 180, 240, 0) 72%);
+    filter: blur(6px);
+    opacity: 0;
+    animation: ghost-mist 1.6s ease-out infinite;
+  }
+
+  @keyframes ghost-waver {
+    0%, 100% { margin-left: 0; }
+    25%      { margin-left: -5px; }
+    50%      { margin-left: 4px; }
+    75%      { margin-left: -3px; }
+  }
+
+  @keyframes ghost-mist {
+    0%   { transform: translate(-50%, -50%) translate(var(--mx), 0) scale(0.5); opacity: 0; }
+    30%  { opacity: var(--mo, 0.5); }
+    100% { transform: translate(-50%, -50%) translate(calc(var(--mx) * 1.5), -110px) scale(1.7); opacity: 0; }
+  }
+
+  /* Each of the 5 fragments flies apart in its own direction and spins.
+     Holds together briefly, then bursts. No falling. */
+  @keyframes exec-shatter {
+    0%   { transform: translate(-50%, -50%) translate(0, var(--fy, 0px)) rotate(0deg); opacity: 1; }
+    20%  { transform: translate(-50%, -50%) translate(calc(var(--tx) * 0.08), calc(var(--fy, 0px) + var(--ty) * 0.08)) rotate(calc(var(--rot) * 0.1)); opacity: 1; }
+    100% { transform: translate(-50%, -50%) translate(var(--tx), calc(var(--fy, 0px) + var(--ty))) rotate(var(--rot)); opacity: 0; }
   }
 
   @keyframes exec-shard-burst {
-    0%   { transform: translate(-50%, -50%) translateY(var(--fall)) translate(0, 0) rotate(0deg); opacity: 0; }
+    0%   { transform: translate(-50%, -50%) translate(0, var(--fy, 0px)) rotate(0deg); opacity: 0; }
     12%  { opacity: 1; }
-    100% { transform: translate(-50%, -50%) translateY(var(--fall)) translate(var(--dx), var(--dy)) rotate(var(--r)); opacity: 0; }
+    100% { transform: translate(-50%, -50%) translate(var(--dx), calc(var(--fy, 0px) + var(--dy))) rotate(var(--r)); opacity: 0; }
   }
 
+  /* Ghost rises from the seat straight up and fades. */
   @keyframes exec-ghost-rise {
-    0%   { transform: translate(-50%, -50%) translateY(var(--fall)) scale(0.8); opacity: 0; }
-    22%  { opacity: 0.9; }
-    78%  { transform: translate(-50%, -50%) translateY(0) scale(1); opacity: 0.9; }
-    100% { transform: translate(-50%, -50%) translateY(-10px) scale(1.06); opacity: 0; }
+    0%   { transform: translate(-50%, -50%) translateY(22px) scale(0.7); opacity: 0; }
+    25%  { opacity: 0.95; }
+    70%  { transform: translate(-50%, -50%) translateY(-28px) scale(1.05); opacity: 0.9; }
+    100% { transform: translate(-50%, -50%) translateY(-72px) scale(1.12); opacity: 0; }
   }
 
   /* Day/night transition: a sun that rises (sunrise) or sets (sunset) over a sky wash */
@@ -484,7 +712,28 @@
     font-size: 1.2em;
     filter: drop-shadow(0 0 4px currentColor);
   }
-  
+
+  /* Ghost-vote token: golden glow + gentle pulse. */
+  .status-icon.ghost-vote {
+    filter:
+      drop-shadow(0 0 4px rgba(255, 215, 0, 0.95))
+      drop-shadow(0 0 9px rgba(255, 195, 0, 0.7));
+    animation: ghost-vote-glow 2s ease-in-out infinite;
+  }
+
+  @keyframes ghost-vote-glow {
+    0%, 100% {
+      filter:
+        drop-shadow(0 0 4px rgba(255, 215, 0, 0.9))
+        drop-shadow(0 0 9px rgba(255, 195, 0, 0.6));
+    }
+    50% {
+      filter:
+        drop-shadow(0 0 7px rgba(255, 223, 70, 1))
+        drop-shadow(0 0 16px rgba(255, 200, 0, 0.85));
+    }
+  }
+
   #phaseDisplay {
     position: absolute;
     top: 50%;
@@ -819,6 +1068,16 @@
 </style>
 </head>
 <body>
+<!-- Turbulence filter that warps the dead-player border into a wavy, wispy
+     edge. The animated baseFrequency makes the waviness shift over time. -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <filter id="ghostWisp">
+    <feTurbulence type="fractalNoise" baseFrequency="0.02 0.04" numOctaves="2" seed="7" result="noise">
+      <animate attributeName="baseFrequency" dur="14s" values="0.02 0.04;0.05 0.02;0.02 0.04" repeatCount="indefinite"/>
+    </feTurbulence>
+    <feDisplacementMap in="SourceGraphic" in2="noise" scale="9" xChannelSelector="R" yChannelSelector="G"/>
+  </filter>
+</svg>
 <div id="phaseSweep"><div class="sky"></div><div class="sun"></div></div>
 <svg id="clockHands"></svg>
 <div id="phaseDisplay" class="connecting">Connecting...</div>
@@ -921,12 +1180,22 @@ let prevAlive = {};
 let prevPhaseKey = null;
 let firstRender = true;
 let prevNominationKey = null; // "nominator>nominee" — used to animate only on new nominations
+let execFxActive = {};   // player name -> true while its execution FX plays (box hidden)
+let materializing = {};  // player name -> true for one render after FX, to fade the box back in
 
-// Deterministic avatar color from a name
+// Deterministic, well-spread avatar color from a name. Two independent hashes
+// drive hue (multiplied by the golden angle so near-identical names land far
+// apart on the wheel) plus saturation/lightness jitter so emblems stay distinct.
 function avatarColor(name) {
-  let h = 0;
-  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) % 360;
-  return `hsl(${h}, 45%, 42%)`;
+  let h1 = 0, h2 = 0;
+  for (let i = 0; i < name.length; i++) {
+    h1 = (h1 * 31 + name.charCodeAt(i)) >>> 0;
+    h2 = (h2 * 131 + name.charCodeAt(i) * 7 + 17) >>> 0;
+  }
+  const hue = (h1 * 137.508) % 360;          // golden-angle spread
+  const sat = 48 + (h2 % 28);                 // 48-75%
+  const light = 38 + ((h1 >>> 3) % 16);       // 38-53%
+  return `hsl(${hue.toFixed(1)}, ${sat}%, ${light}%)`;
 }
 
 function initials(name) {
@@ -978,53 +1247,200 @@ function playSfx(category, volume = 0.9, delay = 0) {
 // Execution FX: drop a card copy to the floor, shatter it into shards, then
 // raise a ghost back to the seat. (x, y) is the seat center in #playersContainer
 // space; since that container fills the viewport it maps 1:1 to the fixed layer.
+// Returns ms until the seat should re-materialize the card (after the spirit
+// has risen back). Each call randomly picks one of four destruction styles.
 function spawnExecutionFx(x, y, name) {
-  if (!execFxLayer) return;
+  if (!execFxLayer) return 2200;
   const rect = playersContainer.getBoundingClientRect();
   const px = rect.left + x;
   const py = rect.top + y;
-  const fall = Math.max(0, window.innerHeight - py - 30); // seat -> near floor
 
   const fx = document.createElement('div');
   fx.className = 'exec-fx';
   fx.style.left = px + 'px';
   fx.style.top = py + 'px';
-  fx.style.setProperty('--fall', fall + 'px');
 
-  // 1) The collapsing body (mini copy of the card).
-  const body = document.createElement('div');
-  body.className = 'exec-body';
-  const av = document.createElement('div');
-  av.className = 'exec-avatar';
-  av.textContent = initials(name);
-  av.style.background = avatarColor(name);
-  const nm = document.createElement('div');
-  nm.textContent = name;
-  body.appendChild(av);
-  body.appendChild(nm);
-  fx.appendChild(body);
+  // A full (unclipped) copy of the card, for the variants that move/burn it.
+  const makeBody = (cls) => {
+    const body = document.createElement('div');
+    body.className = 'exec-body ' + cls;
+    const av = document.createElement('div');
+    av.className = 'exec-avatar';
+    av.textContent = initials(name);
+    av.style.background = avatarColor(name);
+    const nm = document.createElement('div');
+    nm.textContent = name;
+    body.appendChild(av);
+    body.appendChild(nm);
+    return body;
+  };
 
-  // 2) Shards bursting from the floor.
-  const SHARDS = 12;
-  for (let s = 0; s < SHARDS; s++) {
-    const shard = document.createElement('div');
-    shard.className = 'exec-shard';
-    const ang = (Math.PI * 2 * s) / SHARDS + (s % 2 ? 0.3 : -0.2);
-    const dist = 60 + (s % 4) * 25;
-    shard.style.setProperty('--dx', Math.cos(ang) * dist + 'px');
-    shard.style.setProperty('--dy', (Math.sin(ang) * dist - 40) + 'px');
-    shard.style.setProperty('--r', (s * 47) + 'deg');
-    fx.appendChild(shard);
+  // gd = ghost-rise delay (set after the destruction finishes for each variant).
+  const variant = Math.floor(Math.random() * 4);
+  let gd;
+  if (variant === 0) { gd = 0.95; fxShatter(fx, name, 0, 0); }
+  else if (variant === 1) { gd = fxFall(fx, makeBody, name, py); }
+  else if (variant === 2) { gd = 1.65; fxZip(fx, makeBody, px, py); }
+  else { gd = 2.05; fxBurn(fx, makeBody); }
+
+  // Smoky mist rising from the seat as the ghost ascends (independent siblings
+  // so the ghost's own fade can't multiply them away).
+  const MIST = 7;
+  for (let m = 0; m < MIST; m++) {
+    const puff = document.createElement('div');
+    puff.className = 'exec-mist';
+    puff.style.setProperty('--mx', (m % 2 ? 1 : -1) * (6 + (m % 3) * 12) + 'px');
+    puff.style.setProperty('--mo', (0.4 + (m % 3) * 0.12).toFixed(2));
+    puff.style.animationDelay = (gd + m * 0.22).toFixed(2) + 's';
+    fx.appendChild(puff);
   }
 
-  // 3) Ghost rising back to the seat.
+  // Ghost rising from the seat (original position) and fading.
   const ghost = document.createElement('div');
   ghost.className = 'exec-ghost';
   ghost.innerHTML = '👻<span class="exec-ghost-name">' + name + '</span>';
+  ghost.style.animationDelay = gd + 's, ' + gd + 's';
   fx.appendChild(ghost);
 
+  const life = (gd + 1.3 + 0.6) * 1000;
   execFxLayer.appendChild(fx);
-  setTimeout(() => fx.remove(), 2700); // longest chain: ghost delay 0.95 + 1.6s
+  setTimeout(() => fx.remove(), life);
+  return Math.round((gd + 1.25) * 1000);
+}
+
+// Variant 1: shatter into 5 jagged wedges + glass shards.
+// delay = seconds before the burst (used when falling first); fy = px vertical
+// offset so the burst happens at the floor instead of the seat.
+function fxShatter(fx, name, delay, fy) {
+  delay = delay || 0;
+  fy = fy || 0;
+  if (fy) fx.style.setProperty('--fy', fy + 'px');
+  const jaggedClip = () => {
+    const pts = 5 + Math.floor(Math.random() * 4); // 5-8 vertices
+    const coords = [];
+    for (let i = 0; i < pts; i++) {
+      const a = (Math.PI * 2 * i) / pts + (Math.random() - 0.5) * 0.9;
+      const r = 28 + Math.random() * 22;
+      coords.push(`${(50 + Math.cos(a) * r).toFixed(0)}% ${(50 + Math.sin(a) * r).toFixed(0)}%`);
+    }
+    return `polygon(${coords.join(', ')})`;
+  };
+  const PIECES = 5;
+  for (let pc = 0; pc < PIECES; pc++) {
+    const piece = document.createElement('div');
+    piece.className = 'exec-piece p' + pc;
+    const av = document.createElement('div');
+    av.className = 'exec-avatar';
+    av.textContent = initials(name);
+    av.style.background = avatarColor(name);
+    const nm = document.createElement('div');
+    nm.textContent = name;
+    piece.appendChild(av);
+    piece.appendChild(nm);
+    const ang = (Math.PI * 2 * pc) / PIECES - Math.PI / 2 + (Math.random() - 0.5) * 0.5;
+    const dist = 90 + Math.random() * 60;
+    piece.style.setProperty('--tx', (Math.cos(ang) * dist).toFixed(0) + 'px');
+    piece.style.setProperty('--ty', (Math.sin(ang) * dist).toFixed(0) + 'px');
+    piece.style.setProperty('--rot', Math.floor(Math.random() * 120 - 60) + 'deg');
+    if (delay) piece.style.animationDelay = delay.toFixed(2) + 's';
+    fx.appendChild(piece);
+  }
+  const SHARDS = 16;
+  for (let s = 0; s < SHARDS; s++) {
+    const shard = document.createElement('div');
+    shard.className = 'exec-shard';
+    const ang = Math.random() * Math.PI * 2;
+    const dist = 50 + Math.random() * 120;
+    const sz = 8 + Math.random() * 16;
+    shard.style.setProperty('--dx', (Math.cos(ang) * dist).toFixed(0) + 'px');
+    shard.style.setProperty('--dy', (Math.sin(ang) * dist).toFixed(0) + 'px');
+    shard.style.setProperty('--r', Math.floor(Math.random() * 720 - 360) + 'deg');
+    shard.style.setProperty('--sw', sz.toFixed(0) + 'px');
+    shard.style.setProperty('--sh', (sz * (0.5 + Math.random())).toFixed(0) + 'px');
+    shard.style.setProperty('--sd', (0.7 + Math.random() * 0.5).toFixed(2) + 's');
+    shard.style.setProperty('--clip', jaggedClip());
+    // CSS gives shards a 0.55s lead-in; offset by the fall delay when present.
+    shard.style.animationDelay = (delay + 0.55).toFixed(2) + 's';
+    fx.appendChild(shard);
+  }
+}
+
+// Variant 2: fall to the ground, then shatter on impact. Returns ghost delay.
+function fxFall(fx, makeBody, name, py) {
+  const fall = Math.max(40, window.innerHeight - py - 40);
+  const fdur = Math.min(0.95, Math.max(0.45, fall / 1100)); // longer drop = longer fall
+  fx.style.setProperty('--fall', fall + 'px');
+  const body = makeBody('fall');
+  body.style.setProperty('--fdur', fdur.toFixed(2) + 's');
+  body.style.setProperty('--ftilt', Math.floor(Math.random() * 16 - 8) + 'deg');
+  fx.appendChild(body);
+  // Shatter at the floor right as the card lands.
+  fxShatter(fx, name, fdur, fall);
+  return fdur + 1.15; // ghost rises after the impact shatter
+}
+
+// Variant 3: zip ALL OVER the screen then fly off.
+function fxZip(fx, makeBody, px, py) {
+  const body = makeBody('zip');
+  const vw = window.innerWidth, vh = window.innerHeight;
+  // Random absolute points anywhere on screen, expressed relative to the seat
+  // so the card streaks corner-to-corner across the whole display.
+  const wp = (mgn) => ({
+    x: (mgn + Math.random() * (vw - 2 * mgn)) - px,
+    y: (mgn + Math.random() * (vh - 2 * mgn)) - py,
+  });
+  const a = wp(80), b = wp(80), c = wp(80);
+  body.style.setProperty('--z1x', a.x.toFixed(0) + 'px');
+  body.style.setProperty('--z1y', a.y.toFixed(0) + 'px');
+  body.style.setProperty('--z2x', b.x.toFixed(0) + 'px');
+  body.style.setProperty('--z2y', b.y.toFixed(0) + 'px');
+  body.style.setProperty('--z3x', c.x.toFixed(0) + 'px');
+  body.style.setProperty('--z3y', c.y.toFixed(0) + 'px');
+  body.style.setProperty('--r1', Math.floor(Math.random() * 180 - 90) + 'deg');
+  body.style.setProperty('--r2', Math.floor(Math.random() * 360 - 180) + 'deg');
+  body.style.setProperty('--r3', Math.floor(Math.random() * 540 - 270) + 'deg');
+  // Final flight: straight off the nearest-ish random edge of the viewport.
+  const ang = Math.random() * Math.PI * 2;
+  const reach = Math.max(window.innerWidth, window.innerHeight) + 300;
+  body.style.setProperty('--zfx', (Math.cos(ang) * reach).toFixed(0) + 'px');
+  body.style.setProperty('--zfy', (Math.sin(ang) * reach).toFixed(0) + 'px');
+  body.style.setProperty('--rf', Math.floor(Math.random() * 720 - 360) + 'deg');
+  fx.appendChild(body);
+}
+
+// Variant 4: burnt at the stake — dancing flame tongues engulf the card while
+// it gradually chars to black, then it crumbles into rising ash.
+function fxBurn(fx, makeBody) {
+  fx.appendChild(makeBody('burn'));
+  // Several flame tongues across the base, staggered for a dancing fire.
+  const TONGUES = 6;
+  for (let i = 0; i < TONGUES; i++) {
+    const fl = document.createElement('div');
+    fl.className = 'exec-flame';
+    const t = (i + 0.5) / TONGUES;               // 0..1 across the card width
+    fl.style.setProperty('--fox', Math.round((t - 0.5) * 120) + 'px');
+    fl.style.setProperty('--fw', (50 + Math.random() * 55).toFixed(0) + 'px');
+    // Center tongues are tallest; edges shorter, for a flame envelope.
+    const tall = 1 - Math.abs(t - 0.5) * 1.2;
+    fl.style.setProperty('--fh', (110 + tall * 90 + Math.random() * 30).toFixed(0) + 'px');
+    fl.style.setProperty('--fdur', (1.55 + Math.random() * 0.4).toFixed(2) + 's');
+    fl.style.setProperty('--flick', (0.16 + Math.random() * 0.14).toFixed(2) + 's');
+    fl.style.setProperty('--fdelay', (Math.random() * 0.22).toFixed(2) + 's');
+    fx.appendChild(fl);
+  }
+  // Ash starts rising only once the card has charred (burn runs ~1.95s).
+  const ASH = 20;
+  for (let a = 0; a < ASH; a++) {
+    const ash = document.createElement('div');
+    ash.className = 'exec-ash';
+    const ang = -Math.PI / 2 + (Math.random() - 0.5) * 1.6; // mostly upward
+    const dist = 50 + Math.random() * 110;
+    ash.style.setProperty('--dx', (Math.cos(ang) * dist).toFixed(0) + 'px');
+    ash.style.setProperty('--dy', (Math.sin(ang) * dist).toFixed(0) + 'px');
+    ash.style.setProperty('--mo', (0.5 + Math.random() * 0.4).toFixed(2));
+    ash.style.animationDelay = (1.5 + Math.random() * 0.5).toFixed(2) + 's';
+    fx.appendChild(ash);
+  }
 }
 
 // --- Audio playback, remotely controllable from the controller page ---
@@ -1247,11 +1663,24 @@ function render() {
     if (!firstRender && prevAlive[p.name] !== undefined && prevAlive[p.name] !== p.alive) {
       transitionClass = p.alive ? 'just-revived' : 'just-died';
       // Town execution gets the full collapse/shatter/ghost FX + a sound.
+      // Hide the real card for the duration; the ghost reforms it on the way up.
       if (!p.alive && p.deathCause === 'executed') {
-        spawnExecutionFx(x, y, p.name);
+        const name = p.name;
+        execFxActive[name] = true;
+        const revealAt = spawnExecutionFx(x, y, name);
         playSfx('death-sounds', 0.7);
+        // When the spirit has risen back, reveal the card with a materialize
+        // fade-in. Timing depends on which destruction variant played.
+        setTimeout(() => {
+          delete execFxActive[name];
+          materializing[name] = true;
+          render();
+        }, revealAt);
       }
     }
+    // Skip drawing the card body while its execution FX owns the seat.
+    if (execFxActive[p.name]) return;
+    if (materializing[p.name]) { transitionClass = 'just-materialized'; delete materializing[p.name]; }
 
     div.className = `player-card ${!p.alive ? 'dead' : ''} ${p.alive && !isOnBlock ? 'alive' : ''} ${isOnBlock ? 'on-block' : ''} ${isSelfNom ? 'self-nominated' : (isNominated ? 'nominated' : '')} ${!isSelfNom && isNominator ? 'nominator' : ''} ${transitionClass}`;
 
@@ -1272,7 +1701,32 @@ function render() {
 
     div.appendChild(avatar);
     div.appendChild(nameDiv);
-    
+
+    // Dead players are ghosts: billow smoky mist off every side of the card.
+    // Puffs spawn around the whole perimeter and drift outward.
+    if (!p.alive) {
+      const mistWrap = document.createElement("div");
+      mistWrap.className = "card-mist";
+      const MIST = 10;
+      for (let m = 0; m < MIST; m++) {
+        const puff = document.createElement("div");
+        puff.className = "card-mist-puff";
+        const a = (Math.PI * 2 * m) / MIST + (m % 2 ? 0.25 : -0.2);
+        // Spawn point on the card edge (ellipse), in %.
+        const sx = 50 + Math.cos(a) * 52;
+        const sy = 50 + Math.sin(a) * 56;
+        puff.style.setProperty('--px', sx.toFixed(0) + '%');
+        puff.style.setProperty('--py', sy.toFixed(0) + '%');
+        // Outward drift in px, away from center.
+        puff.style.setProperty('--dx', (Math.cos(a) * 26).toFixed(0) + 'px');
+        puff.style.setProperty('--dy', (Math.sin(a) * 26 - 8).toFixed(0) + 'px');
+        puff.style.setProperty('--mo', (0.26 + (m % 3) * 0.08).toFixed(2));
+        puff.style.animationDelay = (m * 0.36).toFixed(2) + 's';
+        mistWrap.appendChild(puff);
+      }
+      div.appendChild(mistWrap);
+    }
+
     // Add nominated label if this player is nominated during day
     if (phase.toLowerCase() === 'day' && nominatedPlayer === i) {
       const nominatedLabel = document.createElement("div");
@@ -1307,7 +1761,7 @@ function render() {
       statusDiv.appendChild(skull);
       if (p.ghostVote) {
       const ghost = document.createElement("span");
-      ghost.className = "status-icon";
+      ghost.className = "status-icon ghost-vote";
       ghost.textContent = "👻";
       ghost.style.color = "#9370db";
       statusDiv.appendChild(ghost);
