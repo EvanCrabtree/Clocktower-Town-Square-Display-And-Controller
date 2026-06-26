@@ -427,6 +427,34 @@
     border-color: #dc143c;
   }
 
+  .end-game-row {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    margin-top: 12px;
+  }
+
+  .btn.end-good {
+    background: linear-gradient(135deg, rgba(255, 200, 80, 0.85), rgba(200, 150, 40, 0.85));
+    border-color: rgba(255, 215, 0, 0.5);
+    color: #2a2410;
+    font-weight: 700;
+  }
+  .btn.end-good:hover {
+    box-shadow: 0 4px 20px rgba(255, 200, 80, 0.4);
+    border-color: #ffd700;
+  }
+
+  .btn.end-evil {
+    background: linear-gradient(135deg, rgba(150, 20, 20, 0.9), rgba(80, 0, 0, 0.9));
+    border-color: rgba(220, 20, 60, 0.5);
+    font-weight: 700;
+  }
+  .btn.end-evil:hover {
+    box-shadow: 0 4px 20px rgba(220, 20, 60, 0.45);
+    border-color: #dc143c;
+  }
+
   .status-badge {
     transition: all 0.2s ease;
   }
@@ -781,6 +809,10 @@
         <input type="number" id="phaseNumber" min="1" value="1">
         <button class="btn btn-primary" id="nextPhaseBtn">Next Time</button>
       </div>
+      <div class="phase-controls-row end-game-row">
+        <button class="btn end-good" id="goodWinsBtn">☀️ Good Wins</button>
+        <button class="btn end-evil" id="evilWinsBtn">🩸 Evil Wins</button>
+      </div>
     </section>
 
     <section class="audio-controls">
@@ -839,7 +871,7 @@ const bulkImportBtn = document.getElementById("bulkImportBtn");
 const clearBulkBtn = document.getElementById("clearBulkBtn");
 
 let players = [];
-let state = { players: [], onBlockPlayer: null, onBlockVotes: 0, nominatedPlayer: null, nominatorPlayer: null, audioCmd: null, nowPlaying: null };
+let state = { players: [], onBlockPlayer: null, onBlockVotes: 0, nominatedPlayer: null, nominatorPlayer: null, audioCmd: null, nowPlaying: null, gameResult: null };
 let previousPhase = null;
 let selectedPlayer = null;
 let nominatingPlayer = null; // index of player whose nominate panel is open
@@ -923,7 +955,8 @@ function sendUpdate() {
     onBlockVotes: state.onBlockVotes,
     nominatedPlayer: state.nominatedPlayer,
     nominatorPlayer: state.nominatorPlayer,
-    audioCmd: state.audioCmd
+    audioCmd: state.audioCmd,
+    gameResult: state.gameResult
   };
   if (ws.readyState === WebSocket.OPEN) {
     ws.send(JSON.stringify(data));
@@ -936,6 +969,14 @@ function sendUpdate() {
 let audioNonce = 0;
 function sendAudioCommand(action) {
   state.audioCmd = { action, nonce: ++audioNonce };
+  sendUpdate();
+}
+
+// Declare the game's winner — the display shows a full-screen victory banner.
+// Nonce-gated like audio so each press triggers the banner exactly once.
+let resultNonce = 0;
+function declareWinner(winner) {
+  state.gameResult = { winner, nonce: ++resultNonce };
   sendUpdate();
 }
 
@@ -1579,6 +1620,9 @@ document.getElementById("audioChangeBtn").onclick = () => sendAudioCommand('chan
 document.getElementById("audioRestartBtn").onclick = () => sendAudioCommand('restart');
 document.getElementById("audioFadeBtn").onclick = () => sendAudioCommand('fade');
 document.getElementById("audioStopBtn").onclick = () => sendAudioCommand('stop');
+
+document.getElementById("goodWinsBtn").onclick = () => declareWinner('good');
+document.getElementById("evilWinsBtn").onclick = () => declareWinner('evil');
 
 renderPlayers();
 </script>

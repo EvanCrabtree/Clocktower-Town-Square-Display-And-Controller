@@ -1281,6 +1281,106 @@
   .player-card.active-turn .player-avatar {
     box-shadow: 0 0 18px 4px rgba(255, 200, 90, 0.55);
   }
+
+  /* ---- Stat tick: a brief glow pop when a count changes ---- */
+  .stat-pop {
+    display: inline-block;
+    animation: stat-pop 0.6s cubic-bezier(0.2, 1.4, 0.4, 1);
+  }
+  @keyframes stat-pop {
+    0%   { transform: scale(1); }
+    35%  { transform: scale(1.5); color: #fff3b0; text-shadow: 0 0 12px rgba(255,220,90,0.95); }
+    100% { transform: scale(1); }
+  }
+
+  /* ---- Win / end-game banner ---- */
+  #winBanner {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    pointer-events: none;
+    background: radial-gradient(circle at 50% 45%, rgba(10,8,16,0.72) 0%, rgba(4,3,8,0.92) 70%);
+  }
+  #winBanner.show {
+    opacity: 1;
+    animation: win-fade-in 0.8s ease forwards;
+  }
+  @keyframes win-fade-in {
+    0% { opacity: 0; }
+    100% { opacity: 1; }
+  }
+  .win-rays {
+    position: absolute;
+    width: 160vmax;
+    height: 160vmax;
+    background: conic-gradient(from 0deg,
+      rgba(255,255,255,0.10) 0deg, transparent 8deg,
+      transparent 22deg, rgba(255,255,255,0.10) 30deg, transparent 38deg,
+      transparent 52deg, rgba(255,255,255,0.08) 60deg, transparent 68deg,
+      transparent 82deg, rgba(255,255,255,0.10) 90deg, transparent 98deg,
+      transparent 112deg, rgba(255,255,255,0.08) 120deg, transparent 128deg,
+      transparent 142deg, rgba(255,255,255,0.10) 150deg, transparent 158deg,
+      transparent 360deg);
+    opacity: 0.5;
+    animation: win-rays-spin 36s linear infinite;
+  }
+  #winBanner.evil .win-rays {
+    background: conic-gradient(from 0deg,
+      rgba(180,30,30,0.16) 0deg, transparent 8deg,
+      transparent 22deg, rgba(180,30,30,0.16) 30deg, transparent 38deg,
+      transparent 52deg, rgba(150,20,20,0.12) 60deg, transparent 68deg,
+      transparent 82deg, rgba(180,30,30,0.16) 90deg, transparent 98deg,
+      transparent 112deg, rgba(150,20,20,0.12) 120deg, transparent 128deg,
+      transparent 142deg, rgba(180,30,30,0.16) 150deg, transparent 158deg,
+      transparent 360deg);
+  }
+  @keyframes win-rays-spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+  .win-content {
+    position: relative;
+    text-align: center;
+    transform: scale(0.8);
+    animation: win-pop 0.9s cubic-bezier(0.2, 1.3, 0.35, 1) 0.15s forwards;
+  }
+  @keyframes win-pop {
+    0%   { transform: scale(0.8); opacity: 0; }
+    100% { transform: scale(1); opacity: 1; }
+  }
+  .win-crest {
+    font-size: clamp(80px, 12vw, 180px);
+    line-height: 1;
+    filter: drop-shadow(0 0 30px rgba(255,210,110,0.8));
+  }
+  #winBanner.evil .win-crest {
+    filter: drop-shadow(0 0 30px rgba(220,40,40,0.85));
+  }
+  .win-title {
+    font-family: 'Cinzel', serif;
+    font-size: clamp(48px, 8vw, 120px);
+    font-weight: 700;
+    margin-top: 10px;
+    color: #ffe9a8;
+    text-shadow: 0 0 24px rgba(255,210,110,0.7), 0 4px 18px rgba(0,0,0,0.6);
+    letter-spacing: 2px;
+  }
+  #winBanner.evil .win-title {
+    color: #ff9b9b;
+    text-shadow: 0 0 24px rgba(220,40,40,0.7), 0 4px 18px rgba(0,0,0,0.6);
+  }
+  .win-sub {
+    font-family: 'Crimson Text', serif;
+    font-size: clamp(18px, 2.4vw, 34px);
+    color: rgba(240,230,210,0.85);
+    margin-top: 6px;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+  }
 </style>
 </head>
 <body>
@@ -1298,6 +1398,14 @@
 <div id="turnGlow"></div>
 <div id="phaseSweep"><div class="sky"></div><div class="rays"></div><div class="sun"></div><div class="stars"></div></div>
 <svg id="clockHands"></svg>
+<div id="winBanner">
+  <div class="win-rays"></div>
+  <div class="win-content">
+    <div class="win-crest" id="winCrest">☀️</div>
+    <div class="win-title" id="winTitle">Good Wins</div>
+    <div class="win-sub">Victory in the Clocktower</div>
+  </div>
+</div>
 <div id="phaseDisplay" class="connecting">Connecting...</div>
 <div id="finalDayWarning">⚠️ Final Day ⚠️</div>
 <div id="votesToExecuteDisplay" style="display: none;">
@@ -1947,9 +2055,62 @@ ws.onmessage = (msg) => {
     handleAudioCommand(data.audioCmd.action);
   }
 
+  // End-game banner — nonce-gated so each declaration fires once
+  if (data.gameResult && data.gameResult.nonce !== undefined && data.gameResult.nonce !== lastResultNonce) {
+    lastResultNonce = data.gameResult.nonce;
+    showWinBanner(data.gameResult.winner);
+  }
+
   render();
 };
 let lastAudioNonce = null;
+let lastResultNonce = null;
+
+// Reveal the full-screen victory banner for 'good' | 'evil' (null hides it).
+let winBannerTimer = null;
+function showWinBanner(winner) {
+  const banner = document.getElementById('winBanner');
+  if (!banner) return;
+  if (!winner) { banner.classList.remove('show', 'evil'); return; }
+  const evil = winner === 'evil';
+  document.getElementById('winCrest').textContent = evil ? '🩸' : '☀️';
+  document.getElementById('winTitle').textContent = evil ? 'Evil Wins' : 'Good Wins';
+  banner.classList.toggle('evil', evil);
+  banner.classList.remove('show');
+  void banner.offsetWidth; // restart fade/pop
+  banner.classList.add('show');
+  playSfx('death-finalizer-sounds', 0.7);
+  if (winBannerTimer) clearTimeout(winBannerTimer);
+  winBannerTimer = setTimeout(() => banner.classList.remove('show', 'evil'), 12000);
+}
+
+// Count a stat <span> up/down to its new value, with a brief glow pop. No-op if
+// unchanged. Stores the displayed value on the element to detect deltas.
+const statTimers = {};
+function animateStat(id, target) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const from = el._statVal !== undefined ? el._statVal : target;
+  el._statVal = target;
+  if (from === target) { el.textContent = target; return; }
+  if (statTimers[id]) clearInterval(statTimers[id]);
+  el.classList.remove('stat-pop');
+  void el.offsetWidth; // restart the glow animation
+  el.classList.add('stat-pop');
+  const steps = Math.min(Math.abs(target - from), 12);
+  const dir = target > from ? 1 : -1;
+  let cur = from;
+  const stepBy = Math.max(1, Math.round(Math.abs(target - from) / steps));
+  statTimers[id] = setInterval(() => {
+    cur += dir * stepBy;
+    if ((dir > 0 && cur >= target) || (dir < 0 && cur <= target)) {
+      cur = target;
+      clearInterval(statTimers[id]);
+      statTimers[id] = null;
+    }
+    el.textContent = cur;
+  }, 45);
+}
 
 function render() {
   phaseDisplay.textContent = `${phase} ${phaseNumber}`;
@@ -1971,10 +2132,10 @@ function render() {
   const alivePlayers = players.filter(p => p.alive).length;
   const deadPlayers = totalPlayers - alivePlayers;
   
-  // Update statistics display
-  document.getElementById('totalPlayers').textContent = totalPlayers;
-  document.getElementById('alivePlayers').textContent = alivePlayers;
-  document.getElementById('deadPlayers').textContent = deadPlayers;
+  // Update statistics display (animated tick when the value changes)
+  animateStat('totalPlayers', totalPlayers);
+  animateStat('alivePlayers', alivePlayers);
+  animateStat('deadPlayers', deadPlayers);
   
   // Final day warning: in BotC the game nears its end at 3 or 4 alive players
   const isDay = phase.toLowerCase() === 'day';
