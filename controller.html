@@ -695,6 +695,37 @@
     font-size: 1em;
   }
 
+  .vote-stepper {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .vote-step-btn {
+    width: 44px;
+    min-width: 44px;
+    height: 44px;
+    padding: 0;
+    font-size: 1.5em;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .vote-step-btn:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+  }
+
+  .vote-step-value {
+    min-width: 2ch;
+    text-align: center;
+    font-size: 1.3em;
+    font-weight: 600;
+    color: #ffd700;
+  }
+
   @media (max-width: 768px) {
     h1 {
       font-size: 2em;
@@ -923,6 +954,51 @@ function initials(name) {
   const parts = name.trim().split(/\s+/);
   if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
+// Minimum votes needed to put someone on the block: half the living players,
+// rounded up (a simple majority). This is the default and the floor for the picker.
+function minVotesNeeded() {
+  const alive = state.players.filter(p => p.alive).length;
+  return Math.ceil(alive / 2);
+}
+
+// A [- value +] vote stepper, clamped to [min, max]. `onChange(value)` fires on
+// each tap. Returns the container element. The number display updates in place.
+function buildVoteStepper(initial, min, max, onChange) {
+  let value = Math.min(Math.max(initial, min), max);
+  const wrap = document.createElement("div");
+  wrap.className = "vote-stepper";
+
+  const dec = document.createElement("button");
+  dec.className = "btn vote-step-btn";
+  dec.textContent = "−";
+
+  const display = document.createElement("span");
+  display.className = "vote-step-value";
+
+  const inc = document.createElement("button");
+  inc.className = "btn vote-step-btn";
+  inc.textContent = "+";
+
+  const refresh = () => {
+    display.textContent = value;
+    dec.disabled = value <= min;
+    inc.disabled = value >= max;
+  };
+  const set = (v) => {
+    value = Math.min(Math.max(v, min), max);
+    refresh();
+    onChange(value);
+  };
+  dec.onclick = (e) => { e.stopPropagation(); set(value - 1); };
+  inc.onclick = (e) => { e.stopPropagation(); set(value + 1); };
+
+  wrap.appendChild(dec);
+  wrap.appendChild(display);
+  wrap.appendChild(inc);
+  refresh();
+  return wrap;
 }
 
 
@@ -1191,12 +1267,12 @@ function renderPlayers() {
       label.textContent = `Votes to put ${p.name} on the block:`;
       panel.appendChild(label);
 
-      const votesInput = document.createElement("input");
-      votesInput.type = "number";
-      votesInput.className = "votes-input";
-      votesInput.min = "0";
-      votesInput.value = "0";
-      panel.appendChild(votesInput);
+      // Stepper: defaults to the min needed, range [0, total players].
+      const min = 0;
+      const max = state.players.length;
+      let votes = Math.min(minVotesNeeded(), max);
+      const stepper = buildVoteStepper(votes, min, max, (v) => { votes = v; });
+      panel.appendChild(stepper);
 
       const buttons = document.createElement("div");
       buttons.className = "nominate-panel-buttons";
@@ -1206,7 +1282,7 @@ function renderPlayers() {
       confirmBtn.textContent = "Confirm";
       confirmBtn.onclick = (e) => {
         e.stopPropagation();
-        setOnBlock(index, parseInt(votesInput.value) || 0);
+        setOnBlock(index, votes);
       };
       buttons.appendChild(confirmBtn);
 
@@ -1232,19 +1308,16 @@ function renderPlayers() {
       
       const votesGroup = document.createElement("div");
       votesGroup.className = "votes-input-group";
-      
+
       const votesLabel = document.createElement("label");
       votesLabel.textContent = "Votes:";
       votesGroup.appendChild(votesLabel);
-      
-      const votesInput = document.createElement("input");
-      votesInput.type = "number";
-      votesInput.className = "votes-input";
-      votesInput.min = "0";
-      votesInput.value = state.onBlockVotes || 0;
-      votesInput.onchange = (e) => { updateOnBlockVotes(parseInt(e.target.value) || 0); };
-      votesGroup.appendChild(votesInput);
-      
+
+      // Live edit of the on-block count, range [0, total players].
+      const stepper = buildVoteStepper(state.onBlockVotes || 0, 0, state.players.length,
+        (v) => updateOnBlockVotes(v));
+      votesGroup.appendChild(stepper);
+
       onBlockControls.appendChild(votesGroup);
       card.appendChild(onBlockControls);
     }
@@ -1260,6 +1333,10 @@ function toggleOnBlock(index) {
   } else {
     state.onBlockPlayer = index;
     state.onBlockVotes = 0;
+    // Putting someone on the block ends the active nomination, but the
+    // nominator/nominee badges persist for the rest of the day.
+    state.nominatorPlayer = null;
+    state.nominatedPlayer = null;
   }
   sendUpdate();
 }
@@ -1269,6 +1346,9 @@ function setOnBlock(index, votes) {
   state.onBlockPlayer = index;
   state.onBlockVotes = votes;
   blockingPlayer = null;
+  // Putting someone on the block ends the active nomination; sticky badges stay.
+  state.nominatorPlayer = null;
+  state.nominatedPlayer = null;
   sendUpdate();
 }
 
@@ -1306,6 +1386,18 @@ function killPlayer(index, cause) {
   const player = state.players[index];
   player.alive = false;
   player.deathCause = cause; // 'executed' or 'killed'
+  // Executing the player on the block clears the block.
+  if (state.onBlockPlayer === index) {
+    state.onBlockPlayer = null;
+    state.onBlockVotes = 0;
+  }
+  // An execution ends the day's nomination phase: clear the active pair and
+  // wipe every player's sticky nominator/nominee badges.
+  if (cause === 'executed') {
+    state.nominatorPlayer = null;
+    state.nominatedPlayer = null;
+    state.players.forEach(pl => { pl.hasNominated = false; pl.hasBeenNominated = false; });
+  }
   sendUpdate();
 }
 
