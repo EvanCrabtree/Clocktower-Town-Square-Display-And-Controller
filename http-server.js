@@ -39,6 +39,7 @@ const server = http.createServer((req, res) => {
   if (pathname === '/') {
     const displayFile = `display_${IP.replace(/\./g, '_')}.html`;
     const controllerFile = `controller_${IP.replace(/\./g, '_')}.html`;
+    const lobbyFile = `lobby_${IP.replace(/\./g, '_')}.html`;
     
     const html = `<!DOCTYPE html>
     <html>
@@ -75,6 +76,8 @@ const server = http.createServer((req, res) => {
             }
             .display { background: #dc2626; }
             .display:hover { background: #b91c1c; }
+            .lobby { background: #059669; }
+            .lobby:hover { background: #047857; }
             h1 { color: #fbbf24; }
         </style>
     </head>
@@ -84,6 +87,7 @@ const server = http.createServer((req, res) => {
         <div class="links">
             <a href="/${displayFile}" class="display">TV Display</a>
             <a href="/${controllerFile}">Controller</a>
+            <a href="/${lobbyFile}" class="lobby">Player Lobby</a>
         </div>
     </body>
     </html>`;
@@ -116,11 +120,12 @@ const server = http.createServer((req, res) => {
   // Check if file exists and is one of our IP-specific files or favicon
   const displayFile = `display_${IP.replace(/\./g, '_')}.html`;
   const controllerFile = `controller_${IP.replace(/\./g, '_')}.html`;
-  
+  const lobbyFile = `lobby_${IP.replace(/\./g, '_')}.html`;
+
   // Allow audio assets under /assets/morning-sounds and /assets/night-sounds
   const isSoundAsset = /^\/assets\/[a-z0-9-]+-sounds\/[^/]+\.(mp3|ogg|wav|m4a)$/i.test(pathname);
 
-  if (fs.existsSync(filePath) && (pathname.includes(displayFile) || pathname.includes(controllerFile) || pathname === '/favicon.ico' || isSoundAsset)) {
+  if (fs.existsSync(filePath) && (pathname.includes(displayFile) || pathname.includes(controllerFile) || pathname.includes(lobbyFile) || pathname === '/favicon.ico' || isSoundAsset)) {
     console.log(`Serving file: ${pathname}`);
     // Get file extension
     const ext = path.parse(filePath).ext;

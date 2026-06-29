@@ -497,6 +497,13 @@
     margin-bottom: 0;
   }
 
+  .player-pronouns {
+    font-size: 0.8em;
+    color: #a08060;
+    font-style: italic;
+    margin-top: 2px;
+  }
+
   .add-player-section {
     background: rgba(20, 20, 30, 0.8);
     border: 2px solid rgba(139, 69, 19, 0.3);
@@ -813,6 +820,9 @@
         <button class="btn end-good" id="goodWinsBtn">☀️ Good Wins</button>
         <button class="btn end-evil" id="evilWinsBtn">🩸 Evil Wins</button>
       </div>
+      <div class="phase-controls-row">
+        <button class="btn danger" id="newGameBtn">🔄 New Game</button>
+      </div>
     </section>
 
     <section class="audio-controls">
@@ -990,6 +1000,13 @@ function clearDayState() {
   nominatingPlayer = null;
 }
 
+// Mint a stable, unique player id. Names are editable, so id (not name) is the
+// identity used by the lobby, the display's transient FX maps, and join chimes.
+function newPlayerId() {
+  if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+  return 'p-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
+}
+
 // Deterministic avatar color + initials from a name (mirrors the display)
 function avatarColor(name) {
   let h = 0;
@@ -1108,15 +1125,30 @@ function renderPlayers() {
 
     const avatar = document.createElement("div");
     avatar.className = "player-avatar";
-    avatar.textContent = initials(p.name);
-    avatar.style.background = avatarColor(p.name);
+    // Self-signed-up players may carry a photo; else the two-letter emblem.
+    if (p.avatar) {
+      avatar.style.backgroundImage = `url(${p.avatar})`;
+      avatar.style.backgroundSize = 'cover';
+      avatar.style.backgroundPosition = 'center';
+    } else {
+      avatar.textContent = initials(p.name);
+      avatar.style.background = avatarColor(p.name);
+    }
 
+    const nameWrap = document.createElement("div");
     const nameDiv = document.createElement("div");
     nameDiv.className = "player-name";
     nameDiv.textContent = p.name;
+    nameWrap.appendChild(nameDiv);
+    if (p.pronouns) {
+      const pron = document.createElement("div");
+      pron.className = "player-pronouns";
+      pron.textContent = p.pronouns;
+      nameWrap.appendChild(pron);
+    }
 
     header.appendChild(avatar);
-    header.appendChild(nameDiv);
+    header.appendChild(nameWrap);
 
     const statusDiv = document.createElement("div");
     statusDiv.className = "player-status";
@@ -1587,7 +1619,7 @@ function bulkImportPlayers() {
   names.forEach(name => {
     // Check if player already exists
     if (!state.players.find(p => p.name.toLowerCase() === name.toLowerCase())) {
-      state.players.push({ name, alive: true, traveler: false, ghostVote: true });
+      state.players.push({ id: newPlayerId(), name, alive: true, traveler: false, ghostVote: true });
     }
   });
   
@@ -1602,7 +1634,7 @@ function clearBulkInput() {
 addPlayerBtn.onclick = () => {
   const name = newPlayerName.value.trim();
   if (name) {
-    state.players.push({ name, alive: true, traveler: false, ghostVote: true });
+    state.players.push({ id: newPlayerId(), name, alive: true, traveler: false, ghostVote: true });
     sendUpdate();
     newPlayerName.value = "";
   }
@@ -1623,6 +1655,15 @@ document.getElementById("audioStopBtn").onclick = () => sendAudioCommand('stop')
 
 document.getElementById("goodWinsBtn").onclick = () => declareWinner('good');
 document.getElementById("evilWinsBtn").onclick = () => declareWinner('evil');
+
+// Start a new game: server clears the roster + mints a new gameId, which frees
+// every phone to re-join the lobby.
+document.getElementById("newGameBtn").onclick = () => {
+  if (!confirm('Start a new game? This clears all players and lets everyone re-join the lobby.')) return;
+  if (ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({ newGame: true }));
+  }
+};
 
 renderPlayers();
 </script>
