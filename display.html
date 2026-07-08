@@ -246,31 +246,6 @@
   }
 
   body.day-theme .player-card.nominated {
-    border-color: rgba(0, 191, 255, 0.8);
-    border-width: 3.3px;
-    box-shadow: 
-      0 0 20px rgba(0, 191, 255, 0.4),
-      0 8px 32px rgba(0, 0, 0, 0.3),
-      inset 0 1px 0 rgba(255, 255, 255, 0.3);
-    animation: pulse-blue 2s ease-in-out infinite;
-  }
-
-  @keyframes pulse-blue {
-    0%, 100% {
-      box-shadow: 
-        0 0 20px rgba(0, 191, 255, 0.4),
-        0 8px 32px rgba(0, 0, 0, 0.3),
-        inset 0 1px 0 rgba(255, 255, 255, 0.3);
-    }
-    50% {
-      box-shadow: 
-        0 0 30px rgba(0, 191, 255, 0.6),
-        0 8px 32px rgba(0, 0, 0, 0.3),
-        inset 0 1px 0 rgba(255, 255, 255, 0.3);
-    }
-  }
-
-  body.day-theme .player-card.nominator {
     border-color: rgba(220, 20, 60, 0.8);
     border-width: 3.3px;
     box-shadow:
@@ -293,6 +268,15 @@
         0 8px 32px rgba(0, 0, 0, 0.3),
         inset 0 1px 0 rgba(255, 255, 255, 0.3);
     }
+  }
+
+  /* Nominator: no border, no glow / no pulse. */
+  body.day-theme .player-card.nominator {
+    border-color: transparent;
+    box-shadow:
+      0 8px 32px rgba(0, 0, 0, 0.3),
+      inset 0 1px 0 rgba(255, 255, 255, 0.3);
+    animation: none;
   }
 
   body.day-theme .player-card.self-nominated {
@@ -3060,8 +3044,8 @@ function drawClockHands(positions, cx, cy, animate) {
 
   // Self-nomination: nominator and nominee are the same player -> yellow
   const isSelf = nominatorPlayer === nominatedPlayer;
-  const hourColor = isSelf ? "#ffd700" : "#dc143c";
-  const minuteColor = isSelf ? "#ffd700" : "#00bfff";
+  const hourColor = isSelf ? "#ffd700" : "#ffffff";
+  const minuteColor = isSelf ? "#ffd700" : "#dc143c";
 
   // Hour hand -> nominator (short, ornate). Minute hand -> nominee (long, ornate).
   const hour = handShape(ns, cx, cy, nom.x, nom.y, 0.62, hourColor, 9, 22);
