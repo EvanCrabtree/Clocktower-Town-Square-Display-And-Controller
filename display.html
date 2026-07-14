@@ -137,6 +137,60 @@
     color: #d4b483;
   }
   
+  /* Audio-unlock gate: full-screen prompt that swallows the first click so
+     browsers let us play sound for the rest of the session. */
+  #audioGate {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: radial-gradient(circle at 50% 40%, rgba(30, 20, 45, 0.92), rgba(8, 6, 14, 0.97));
+    backdrop-filter: blur(6px);
+    cursor: pointer;
+    transition: opacity 0.6s ease;
+  }
+  #audioGate.hidden {
+    opacity: 0;
+    pointer-events: none;
+  }
+  #audioGate .gate-inner {
+    text-align: center;
+    color: #f0e6d2;
+    font-family: 'Cinzel', serif;
+    user-select: none;
+    animation: gate-breathe 2.6s ease-in-out infinite;
+  }
+  #audioGate .gate-bell {
+    font-size: 4.5em;
+    filter: drop-shadow(0 0 18px rgba(255, 200, 80, 0.6));
+    margin-bottom: 0.2em;
+  }
+  #audioGate .gate-title {
+    font-size: 2.1em;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-shadow: 0 0 20px rgba(180, 40, 40, 0.6);
+  }
+  #audioGate .gate-cta {
+    margin-top: 0.7em;
+    font-size: 1.4em;
+    color: #ffd24d;
+    letter-spacing: 3px;
+  }
+  #audioGate .gate-sub {
+    margin-top: 0.3em;
+    font-size: 0.8em;
+    color: #a08060;
+    font-style: italic;
+    letter-spacing: 1px;
+  }
+  @keyframes gate-breathe {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+  }
+
   .player-card {
     position: absolute;
     text-align: center;
@@ -153,9 +207,9 @@
     transition: all 0.3s ease;
     backdrop-filter: blur(10px);
     overflow: hidden;
-    width: clamp(120px, 10vw, 160px);
-    min-width: 120px;
-    max-width: 160px;
+    width: clamp(150px, 12.5vw, 200px);
+    min-width: 150px;
+    max-width: 200px;
   }
 
   body.day-theme .player-card {
@@ -315,8 +369,8 @@
   }
 
   .player-avatar {
-    width: clamp(34px, 3.2vw, 46px);
-    height: clamp(34px, 3.2vw, 46px);
+    width: clamp(42px, 4vw, 57px);
+    height: clamp(42px, 4vw, 57px);
     border-radius: 50%;
     margin: 0 auto 5px;
     display: flex;
@@ -324,10 +378,11 @@
     justify-content: center;
     font-family: 'Cinzel', serif;
     font-weight: 600;
-    font-size: clamp(0.9em, 1.4vw, 1.15em);
+    font-size: clamp(1.13em, 1.75vw, 1.44em);
     color: #fff;
     text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
     border: 2px solid rgba(255, 255, 255, 0.25);
+    /* initials font scaled with the +25% avatar */
     box-shadow: inset 0 1px 4px rgba(255, 255, 255, 0.2), 0 2px 6px rgba(0, 0, 0, 0.4);
   }
 
@@ -834,7 +889,7 @@
 
   .player-name {
     font-weight: 600;
-    font-size: 1.1em;
+    font-size: 1.375em;
     margin-bottom: 5px;
     color: #f0e6d2;
   }
@@ -1440,6 +1495,17 @@
 </style>
 </head>
 <body>
+<!-- One-time gesture gate. Browsers block audio until the page gets a user
+     interaction; this overlay captures that first click and unlocks the tab so
+     every later SFX / music call can play. -->
+<div id="audioGate">
+  <div class="gate-inner">
+    <div class="gate-bell">🔔</div>
+    <div class="gate-title">Blood on the Clocktower</div>
+    <div class="gate-cta">Click to begin</div>
+    <div class="gate-sub">enables sound</div>
+  </div>
+</div>
 <!-- Turbulence filter that warps the dead-player border into a wavy, wispy
      edge. The animated baseFrequency makes the waviness shift over time. -->
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
@@ -2021,6 +2087,42 @@ let knownPlayerIds = new Set(); // roster ids already seen, to chime only on new
 // Prefer the stable id; fall back to name for controller-added players without one.
 function playerKey(p) { return p.id || ('name:' + p.name); }
 let execFxActive = {};   // player name -> true while its execution FX plays (box hidden)
+
+// ---- Audio unlock gate ----
+// Browsers refuse to play() until the page sees a user gesture. audioUnlocked
+// stays false until the overlay is clicked; playback helpers no-op cleanly
+// before then, and on unlock we prime the tab + kick off the right music.
+let audioUnlocked = false;
+function unlockAudio() {
+  if (audioUnlocked) return;
+  audioUnlocked = true;
+  // Prime the tab: a muted play()/pause() inside the gesture satisfies the
+  // autoplay policy so every later Audio element is allowed to sound.
+  try {
+    const primer = new Audio();
+    primer.muted = true;
+    const p = primer.play();
+    if (p && p.catch) p.catch(() => {});
+    primer.pause();
+  } catch (e) {}
+  const gate = document.getElementById('audioGate');
+  if (gate) {
+    gate.classList.add('hidden');
+    setTimeout(() => { if (gate.parentNode) gate.parentNode.removeChild(gate); }, 700);
+  }
+  // Start background music for whatever phase we're already in (phase-change
+  // handlers only fire on a transition, which may not happen after load).
+  const key = phase.toLowerCase() === 'day' ? 'day' : 'night';
+  if (!currentAudio) {
+    playRandomSound(key === 'day' ? 'morning-sounds' : 'night-sounds');
+  }
+}
+window.addEventListener('DOMContentLoaded', () => {
+  const gate = document.getElementById('audioGate');
+  if (gate) gate.addEventListener('click', unlockAudio, { once: true });
+  // Any key also unlocks (TV remotes / keyboards).
+  window.addEventListener('keydown', unlockAudio, { once: true });
+});
 let materializing = {};  // player name -> true for one render after FX, to fade the box back in
 let prevOnBlockPlayer = null;  // who was on the block, to pulse once when newly set
 
@@ -2122,6 +2224,7 @@ function buildAmbientMotes() {
 // mid-playback (which silently dropped sounds). Removed once they finish/error.
 const liveSfx = new Set();
 function playSfxFile(path, volume = 0.9, delay = 0) {
+  if (!audioUnlocked) return null; // gesture gate not cleared yet
   const sfx = new Audio(path.charAt(0) === '/' ? path : '/' + path);
   sfx.volume = volume;
   sfx.preload = 'auto';
@@ -2154,6 +2257,7 @@ function playSfxRamp(category, volume = 0.9, maxRate = 2.5, fadeStartMs = 3500, 
       if (!files || files.length === 0) return;
       const pick = files[Math.floor(Math.random() * files.length)];
       const sfx = playSfxFile(pick, volume);
+      if (!sfx) return; // audio gate not unlocked yet
       let rafId = null;
       const startedAt = performance.now();
       const step = (now) => {
@@ -2480,6 +2584,7 @@ function shuffleTracks(arr) {
 // switching category or when it runs dry. `avoid` skips a track at the front so a
 // reshuffle doesn't immediately repeat the one just played.
 function playRandomSound(category, avoid) {
+  if (!audioUnlocked) return Promise.resolve(); // gesture gate not cleared yet
   return fetch(`/api/sounds/${category}`)
     .then(r => r.ok ? r.json() : [])
     .then(files => {
